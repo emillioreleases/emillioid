@@ -103,7 +103,9 @@ export default async function SignIn({
           !session.user.connectedRobloxAccount
         ) {
           return (
-            <RobloxLink clientName={request?.data.client.client_name ?? "My Apps"} />
+            <RobloxLink
+              clientName={request?.data.client.client_name ?? "My Apps"}
+            />
           );
         }
 
@@ -117,8 +119,15 @@ export default async function SignIn({
     }
   }
   if (session?.user) {
-    if (!session.user.email.endsWith("bloxvalschools.com") && !session.user.connectedRobloxAccount) {
-      return <RobloxLink clientName={request?.data.client.client_name ?? "My Apps"} />;
+    if (
+      !session.user.email.endsWith("bloxvalschools.com") &&
+      !session.user.connectedRobloxAccount
+    ) {
+      return (
+        <RobloxLink
+          clientName={request?.data.client.client_name ?? "My Apps"}
+        />
+      );
     }
     redirect("/portal");
   }
@@ -139,12 +148,16 @@ export default async function SignIn({
           <h1 className="text-2xl font-bold text-white">Welcome!</h1>
           <h5 className="text-sm text-gray-400">
             Please login to continue to{" "}
-            <span className="font-bold">{request?.data.client.client_name ?? "My Apps"}</span>
+            <span className="font-bold">
+              {request?.data.client.client_name ?? "My Apps"}
+            </span>
           </h5>
         </div>
         <SSOButtons />
         <div className="flex items-stretch justify-center space-x-2 text-sm text-gray-400">
-          <a href="https://www.bloxvalschools.com/page/privacy-policy">Privacy Policy</a>
+          <a href="https://www.bloxvalschools.com/page/privacy-policy">
+            Privacy Policy
+          </a>
           <div className="w-[1px] border-[0.5px]" />
           <a href="https://www.bloxvalschools.com/page/tos">Terms of Use</a>
         </div>

@@ -59,7 +59,7 @@ export default async function Consent({
         { displayName: string; name: string; id: string; profileUrl: string },
         {
           data: {
-            imageURL: string;
+            imageUrl: string;
           }[];
         },
       ];
@@ -68,7 +68,7 @@ export default async function Consent({
         email: `${userData1.id}@students.bloxvalschools.com`,
         name: `${userData1.displayName} (@${userData1.name})`,
         preferred_username: userData1.name,
-        picture: avatar.data[0]!.imageURL,
+        picture: avatar.data[0]!.imageUrl,
         groups: []
       };
       break;
@@ -132,7 +132,7 @@ export default async function Consent({
           { displayName: string; name: string; id: string; profileUrl: string },
           {
             data: {
-              imageURL: string;
+              imageUrl: string;
             }[];
           },
         ];
@@ -141,7 +141,7 @@ export default async function Consent({
           email: `${userData.id}@students.bloxvalschools.com`,
           name: `${userData.displayName} (@${userData.name})`,
           preferred_username: userData.name,
-          picture: avatar.data[0]!.imageURL,
+          picture: avatar.data[0]!.imageUrl,
           groups: []
         };
       }

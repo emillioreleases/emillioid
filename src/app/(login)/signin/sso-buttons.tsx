@@ -1,11 +1,13 @@
 "use client";
 import Image from "next/image";
 import { usePathname, useSearchParams } from "next/navigation";
+import { useState } from "react";
 
 import { Button } from "~/components/ui/button";
 import { authClient } from "~/utils/auth-client";
 
 export default function SSOButtons() {
+  const [loggingIN, setLoggingIn] = useState(false);
   const pathname = usePathname();
   const searchParams = useSearchParams();
   return (
@@ -15,11 +17,13 @@ export default function SSOButtons() {
         variant="outline"
         onClick={async (e) => {
           e.preventDefault();
+          setLoggingIn(true);
           await authClient.signIn.social({
             provider: "discord",
             callbackURL: pathname+"?"+searchParams.toString(),
           });
         }}
+        disabled={loggingIN}
       >
         <Image
           src={"/auth-logos/discord.svg"}
@@ -37,11 +41,13 @@ export default function SSOButtons() {
         variant="outline"
         onClick={async (e) => {
           e.preventDefault();
+          setLoggingIn(true);
           await authClient.signIn.social({
             provider: "roblox",
             callbackURL: pathname+"?"+searchParams.toString(),
           });
         }}
+        disabled={loggingIN}
       >
         <Image
           src={"/auth-logos/roblox.svg"}
@@ -58,12 +64,14 @@ export default function SSOButtons() {
         <button
           onClick={async (e) => {
             e.preventDefault();
+            setLoggingIn(true);
             await authClient.signIn.social({
               provider: "microsoft",
               callbackURL: pathname+"?"+searchParams.toString(),
             });
           }}
           className="font-semibold underline"
+          disabled={loggingIN}
         >
           Click here
         </button>
