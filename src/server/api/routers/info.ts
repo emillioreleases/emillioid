@@ -4,7 +4,7 @@ import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 
 export const infoRouter = createTRPCRouter({
   details: protectedProcedure.mutation(async ({ ctx }) => {
-    if (ctx.session.user.email.endsWith("students.bloxvalschools.com")) {
+    if (ctx.session.user.email.endsWith("bloxvalschools.com")) {
       return {
         name: ctx.session.user.name,
         image: ctx.session.user.image,
