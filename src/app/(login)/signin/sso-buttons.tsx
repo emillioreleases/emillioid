@@ -12,7 +12,7 @@ export default function SSOButtons() {
   const searchParams = useSearchParams();
   return (
     <div className="flex w-full flex-col items-center justify-center space-y-2">
-      <Button
+{/*       <Button
         className="flex w-full p-6"
         variant="outline"
         onClick={async (e) => {
@@ -35,7 +35,7 @@ export default function SSOButtons() {
         <p>
           Login with <span className="font-bold">Discord</span>
         </p>
-      </Button>
+      </Button> */}
       <Button
         className="flex w-full p-6"
         variant="outline"
