@@ -28,15 +28,12 @@ export default async function SignIn({
       const error = e as {
         response: { data: { error: string; error_description: string } };
       };
-      console.log(error.response.data.error_description);
       return (
         <>
           <header className="mx-[-1rem] mt-[-1.5rem] mb-[-0.75rem] flex min-w-full items-stretch justify-center space-x-2 p-4">
             <Image src={"/logo.png"} alt={"Logo"} width={100} height={75} />
           </header>
-          <div>
-            Something went wrong! {error.response.data.error_description}
-          </div>
+          <div>Something went wrong! {error.response?.data ? error.response.data.error_description: "Unknown Error"}</div>
         </>
       );
     }
