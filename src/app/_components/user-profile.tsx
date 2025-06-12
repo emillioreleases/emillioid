@@ -1,4 +1,5 @@
 import { LucideUserCircle } from "lucide-react";
+import Image from "next/image";
 import { Avatar, AvatarImage, AvatarFallback } from "~/components/ui/avatar";
 import {
   DropdownMenu,
@@ -72,11 +73,12 @@ export default async function UserProfile() {
             <DropdownMenuSeparator />
             <DropdownMenuItem>Profile</DropdownMenuItem>
             <DropdownMenuItem>Settings</DropdownMenuItem>
-            <DropdownMenuItem>Logout</DropdownMenuItem>
+            <DropdownMenuItem color={"destructive"}>Logout</DropdownMenuItem>
           </>
         ) : (
           <DropdownMenuItem>Login</DropdownMenuItem>
         )}
+        <div className="bg-muted -mx-1 -mb-1 mt-1 px-2.5 flex space-x-2"><span className="opacity-25 text-sm my-3">{"Powered by"}</span><Image src={"/logo.png"} alt={"Logo"} width={40} height={40} className="opacity-25 object-cover" /></div>
       </DropdownMenuContent>
     </DropdownMenu>
   );
