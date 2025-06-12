@@ -143,6 +143,11 @@ export default async function SignIn({
           </h5>
         </div>
         <SSOButtons />
+        <div className="flex items-stretch justify-center space-x-2 text-sm text-gray-400">
+          <a href="https://www.bloxvalschools.com/page/privacy-policy">Privacy Policy</a>
+          <div className="w-[1px] border-[0.5px]" />
+          <a href="https://www.bloxvalschools.com/page/tos">Terms of Use</a>
+        </div>
       </main>
     </>
   );
