@@ -2,7 +2,6 @@ import { ory } from "~/utils/ory";
 import Image from "next/image";
 import { auth } from "~/server/auth";
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
 import { db } from "~/server/db";
 import { user } from "~/server/db/schema";
 import { eq } from "drizzle-orm";
@@ -15,21 +14,13 @@ export default async function SignIn({
 }: {
   searchParams: Promise<{ login_challenge: string }>;
 }) {
-  let session = await auth.api.getSession({
+  const session = await auth.api.getSession({
     headers: await headers(),
   });
   const sp = await searchParams;
   let request;
   if (sp.login_challenge) {
     const login_challenge = sp.login_challenge;
-    if (session?.session?.createdAt && (Date.now() - session.session.createdAt.getTime()) > (5 * 60 * 1000)) {
-      await auth.api.signOut({
-        headers: await headers(),
-      });
-      session = await auth.api.getSession({
-        headers: await headers(),
-      });
-    }
     try {
       request = await ory.getOAuth2LoginRequest({
         loginChallenge: login_challenge ?? "",
@@ -89,7 +80,7 @@ export default async function SignIn({
         let method = "";
         const account = await db.query.account.findFirst({
           where(fields, operators) {
-            return operators.eq(fields.userId, session!.user.id);
+            return operators.eq(fields.userId, session.user.id);
           },
         });
 
@@ -143,7 +134,6 @@ export default async function SignIn({
         />
       );
     }
-    redirect("/portal");
   }
   return (
     <>
