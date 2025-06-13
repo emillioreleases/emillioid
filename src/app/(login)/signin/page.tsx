@@ -69,7 +69,7 @@ export default async function SignIn({
           !(request.data.client.metadata as { no_staff: boolean | undefined })
             .no_staff
         ) {
-          await permitLogin(session.user.id, "myteam");
+          return await permitLogin(session.user.id, "myteam");
         } else {
           return (
             <div>
@@ -118,7 +118,7 @@ export default async function SignIn({
 
         console.log(session.user.connectedRobloxAccount);
 
-        await permitLogin(
+        return await permitLogin(
           session.user.connectedRobloxAccount ?? account!.accountId,
           method,
         );
