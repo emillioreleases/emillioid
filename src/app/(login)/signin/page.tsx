@@ -8,6 +8,7 @@ import { eq } from "drizzle-orm";
 import SSOButtons from "./sso-buttons";
 import RobloxLink from "./roblox-link";
 import SigningIn from "./signing-in";
+import { redirect } from "next/navigation";
 
 export default async function SignIn({
   searchParams,
@@ -134,6 +135,7 @@ export default async function SignIn({
         />
       );
     }
+    redirect("/portal");
   }
   return (
     <>
