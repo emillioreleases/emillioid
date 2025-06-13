@@ -12,7 +12,7 @@ export async function oryLogout(logoutChallenge: string, choice: boolean) {
       .rejectOAuth2LogoutRequest({
         logoutChallenge: logoutChallenge,
       });
-    return request.request_url;
+    return new URL(request.request_url!).searchParams.get("post_logout_redirect_uri"); 
   } else {
     const [oryLogoutAccept] = await Promise.all([
       ory
