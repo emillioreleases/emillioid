@@ -1,9 +1,9 @@
+"use server";
 import { headers } from "next/headers";
 import { auth } from "~/server/auth";
 import { ory } from "~/utils/ory";
 
 export async function oryLogout(logoutChallenge: string, choice: boolean) {
-  "use server";
   const request = await ory.getOAuth2LogoutRequest({
     logoutChallenge: logoutChallenge,
   }).then((res) => res.data);
@@ -23,7 +23,7 @@ export async function oryLogout(logoutChallenge: string, choice: boolean) {
         headers: await headers(),
       })
     ]);
-    
+
     return oryLogoutAccept.data.redirect_to;
   }
 }
