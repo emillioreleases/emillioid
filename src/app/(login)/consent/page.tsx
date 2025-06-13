@@ -18,30 +18,39 @@ export default async function Consent({
   });
   let consent: OAuth2ConsentRequest;
   try {
-    consent = await ory.getOAuth2ConsentRequest({
-      consentChallenge: (await searchParams).consent_challenge,
-    }).then((res) => res.data);
+    consent = await ory
+      .getOAuth2ConsentRequest({
+        consentChallenge: (await searchParams).consent_challenge,
+      })
+      .then((res) => res.data);
   } catch (e: unknown) {
     const error = e as {
       response: { data: { error: string; error_description: string } };
     };
     return (
       <>
-        <div>Something went wrong! {error.response?.data ? error.response.data.error_description: "Unknown Error"}</div>
+        <div>
+          Something went wrong!{" "}
+          {error.response?.data
+            ? error.response.data.error_description
+            : "Unknown Error"}
+        </div>
       </>
     );
   }
 
   if (!session?.session) {
     redirect(
-      await ory.rejectOAuth2ConsentRequest({
-        consentChallenge: consent.challenge,
-        rejectOAuth2Request: {
-          error: "access_denied",
-          error_description: "No session",
-        },
-      }).then((res) => res.data.redirect_to),
-    )
+      await ory
+        .rejectOAuth2ConsentRequest({
+          consentChallenge: consent.challenge,
+          rejectOAuth2Request: {
+            error: "access_denied",
+            error_description: "No session",
+          },
+        })
+        .then((res) => res.data.redirect_to),
+    );
   }
 
   const context = consent.context as { login_method: string };
@@ -50,16 +59,14 @@ export default async function Consent({
   console.log(consent);
 
   if (consent.skip || consent.client?.skip_consent) {
+    let returnUrl;
     try {
-      redirect(await api.consent.giveConsent(consent.challenge))
+      returnUrl = await api.consent.noConsent(consent.challenge);
     } catch (e) {
       const error = e as TRPCError;
-      return (
-        <div>
-          Something went wrong! {error.message}
-        </div>
-      )
+      return <div>Something went wrong! {error.message}</div>;
     }
+    return redirect(returnUrl);
   }
 
   return (
@@ -69,7 +76,8 @@ export default async function Consent({
           We need your permission to continue.
         </h1>
         <h5 className="text-sm text-gray-400">
-          Do you consent to logging in to {consent.client?.client_name} with your myBCPS account?
+          Do you consent to logging in to {consent.client?.client_name} with
+          your myBCPS account?
         </h5>
       </div>
       <div className="flex w-full flex-col items-center justify-center space-y-2">
@@ -80,7 +88,7 @@ export default async function Consent({
           <li>- View your myBCPS email.</li>
         </ul>
       </div>
-      <Buttons challenge={consent.challenge}  />
+      <Buttons challenge={consent.challenge} />
     </div>
   );
 }
