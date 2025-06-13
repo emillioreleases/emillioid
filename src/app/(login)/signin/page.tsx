@@ -119,7 +119,11 @@ export default async function SignIn({
         console.log(session.user.connectedRobloxAccount);
 
         return await permitLogin(
-          session.user.connectedRobloxAccount ?? account!.accountId,
+          !(
+            request.data.client.metadata as
+              | { discord_direct: boolean | undefined }
+              | undefined
+          )?.discord_direct ?  "roblox|"+session.user.connectedRobloxAccount! : "discord|"+account!.accountId,
           method,
         );
       }

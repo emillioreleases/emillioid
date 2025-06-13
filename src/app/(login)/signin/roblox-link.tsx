@@ -8,6 +8,7 @@ import { api } from "~/trpc/react";
 export default function RobloxLink({ clientName }: { clientName: string }) {
   const router = useRouter();
   const [area, setArea] = useState<"select" | "selectThirdParty">("select");
+  const [buttonsEnabled, setButtonsEnabled] = useState(true);
   const [errors, setErrors] = useState<string[]>([]);
   const [success, setSuccess] = useState<boolean>(false);
 
@@ -22,6 +23,14 @@ export default function RobloxLink({ clientName }: { clientName: string }) {
     }
     setErrors(int);
   }, [bloxlinkLink.error?.message, bloxlinkLink.isError]);
+
+  useEffect(() => {
+    if (bloxlinkLink.isPending) {
+      setButtonsEnabled(false);
+    } else {
+      setButtonsEnabled(true);
+    }
+  }, [bloxlinkLink.isPending]);
 
   useEffect(() => {
     if (bloxlinkLink.isSuccess) {
@@ -65,6 +74,7 @@ export default function RobloxLink({ clientName }: { clientName: string }) {
                     <button
                       className="flex grow flex-col justify-start rounded-lg border border-gray-900 bg-gray-950 p-6 text-left"
                       onClick={() => setArea("selectThirdParty")}
+                      disabled={!buttonsEnabled}
                     >
                       <span className="text-lg font-bold">{"Third-Party"}</span>
                       <span className="text-sm text-gray-400">
@@ -79,6 +89,7 @@ export default function RobloxLink({ clientName }: { clientName: string }) {
                     <button
                       className="flex grow flex-col justify-start rounded-lg border border-gray-900 bg-gray-950 p-6 text-left"
                       onClick={() => bloxlinkLink.mutate()}
+                      disabled={!buttonsEnabled}
                     >
                       <span className="text-lg font-bold">
                         {"Bloxlink (BCPS USERS)"}
@@ -94,6 +105,7 @@ export default function RobloxLink({ clientName }: { clientName: string }) {
                     className="flex w-full"
                     variant="outline"
                     onClick={() => setArea("select")}
+                    disabled={!buttonsEnabled}
                   >
                     Go Back
                   </Button>

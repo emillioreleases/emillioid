@@ -43,7 +43,10 @@ export const user = createTable("user", (d) => ({
   image: d.text("image"),
   connectedRobloxAccount: d.text("connected_roblox_account"),
   groups: d.text("groups").default(JSON.stringify([])).notNull(),
-  verifiedWanted: d.integer("verified_wanted", { mode: "boolean" }).default(false).notNull(),
+  verifiedWanted: d
+    .integer("verified_wanted", { mode: "boolean" })
+    .default(false)
+    .notNull(),
   createdAt: d
     .integer("created_at", { mode: "timestamp" })
     .$defaultFn(() => /* @__PURE__ */ new Date())
@@ -66,6 +69,7 @@ export const session = createTable("session", (d) => ({
     .text("user_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
+  orySessions: d.text("ory_sessions"),
 }));
 
 export const account = createTable("account", (d) => ({

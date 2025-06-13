@@ -5,12 +5,20 @@ import { db } from "~/server/db";
 
 import { ory } from "~/utils/ory";
 import Buttons from "./buttons";
+import { giveConsent } from "./server-actions";
+import { EncryptJWT, base64url } from "jose";
+import { auth } from "~/server/auth";
+import { headers } from "next/headers";
+import { env } from "~/env";
 
 export default async function Consent({
   searchParams,
 }: {
   searchParams: Promise<{ consent_challenge: string }>;
 }) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
   let consent: OAuth2ConsentRequest;
   try {
     consent = await ory.getOAuth2ConsentRequest({
@@ -28,6 +36,18 @@ export default async function Consent({
         <div>Something went wrong! {error.response?.data ? error.response.data.error_description: "Unknown Error"}</div>
       </>
     );
+  }
+
+  if (!session?.session) {
+    redirect(
+      await ory.rejectOAuth2ConsentRequest({
+        consentChallenge: consent.challenge,
+        rejectOAuth2Request: {
+          error: "access_denied",
+          error_description: "No session",
+        },
+      }).then((res) => res.data.redirect_to),
+    )
   }
 
   let user: {
@@ -195,40 +215,15 @@ export default async function Consent({
       );
   }
 
-  async function giveConsent(code_challenge?: string) {
-    return await ory
-      .acceptOAuth2ConsentRequest({
-        consentChallenge: code_challenge ?? (await searchParams).consent_challenge,
-        acceptOAuth2ConsentRequest: {
-          session: {
-            id_token: {
-              login_method: user.method,
-              email: user.email,
-              name: user.name,
-              display_name: user.method === "roblox" || user.method === "discord" ? user.name.split(" ")[0] : user.name,
-              preferred_username: user.preferred_username,
-              picture: user.picture,
-              groups: user.groups
-            },
-            access_token: {
-              login_method: user.method,
-              email: user.email,
-              name: user.name,
-              display_name: user.method === "roblox" || user.method === "discord" ? user.name.split(" ")[0] : user.name,
-              preferred_username: user.preferred_username,
-              picture: user.picture,
-              groups: user.groups
-            },
-          },
-          grant_scope: consent.requested_scope,
-          grant_access_token_audience:
-            consent.requested_access_token_audience,
-        },
-      })
-      .then((res) => res.data.redirect_to);
-  }
+  const user_jwt = await new EncryptJWT(user)
+    .setProtectedHeader({ alg: "PBES2-HS256+A128KW", enc: "A128CBC-HS256" })
+    .setAudience(session.session.id)
+    .encrypt(base64url.decode(env.BETTER_AUTH_SECRET));
 
-  redirect(await giveConsent());
+  if (consent.skip || consent.client?.skip_consent) {
+    return redirect(await giveConsent(consent.challenge, user_jwt, consent.requested_scope!, consent.requested_access_token_audience!));
+  }
+  
 
   return (
     <div className="flex h-full w-full flex-col items-center justify-center space-y-4 sm:h-fit">
@@ -245,9 +240,10 @@ export default async function Consent({
         <ul className="flex w-full flex-col items-start justify-center space-y-2 text-sm text-gray-400">
           <li>- View your account information</li>
           <li>- View your account groups</li>
+          <li>- View your myBCPS email, ${user.email}</li>
         </ul>
       </div>
-      <Buttons giveConsent={giveConsent} />
+      <Buttons giveConsent={giveConsent} challenge={consent.challenge} user={user_jwt} audience={consent.requested_access_token_audience!} scopes={consent.requested_scope!} />
     </div>
   );
 }
