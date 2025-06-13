@@ -1,11 +1,6 @@
-"use server";
-import { ory } from "~/utils/ory";
-import { jwtDecrypt, base64url } from "jose";
-import { env } from "~/env";
-import { auth } from "~/server/auth";
-import { headers } from "next/headers";
+import { ory } from "./ory";
 
-async function consentAccept(
+export async function consentAccept(
   code_challenge: string,
   user: {
     method: string;
@@ -50,43 +45,6 @@ async function consentAccept(
         },
         grant_scope: scopes,
         grant_access_token_audience: audience,
-      },
-    })
-    .then((res) => res.data.redirect_to);
-}
-
-export async function giveConsent(
-  code_challenge: string,
-  user_jwt: string,
-  scopes: string[],
-  audience: string[],
-) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
-  if (!session?.session) {
-    throw new Error("No session");
-  }
-  const user = await jwtDecrypt<{
-    method: string;
-    email: string;
-    name: string;
-    preferred_username: string;
-    picture: string;
-    groups: string[];
-  }>(user_jwt, base64url.decode(env.BETTER_AUTH_SECRET), {
-    audience: session.session.id,
-  }).then((res) => res.payload);
-  return await consentAccept(code_challenge, user, scopes, audience);
-}
-
-export async function noConsent(code_challenge: string) {
-  return await ory
-    .rejectOAuth2ConsentRequest({
-      consentChallenge: code_challenge,
-      rejectOAuth2Request: {
-        error: "access_denied",
-        error_description: "User denied access",
       },
     })
     .then((res) => res.data.redirect_to);

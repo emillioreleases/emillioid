@@ -1,44 +1,46 @@
 "use client";
 import { redirect } from "next/navigation";
 import { Button } from "~/components/ui/button";
-import { noConsent } from "./server-actions";
+import { api } from "~/trpc/react";
+import { useState } from "react";
 
 export default function Buttons({
-  giveConsent,
-  user,
   challenge,
-  audience,
-  scopes,
 }: {
-  giveConsent: (
-    code_challenge: string,
-    user_jwt: string,
-    scopes: string[],
-    audience: string[],
-  ) => Promise<string>;
-  user: string;
   challenge: string;
-  audience: string[];
-  scopes: string[];
 }) {
-  return (
+  const [buttonsEnabled, setButtonsEnabled] = useState(true);
+  const giveConsent = api.consent.giveConsent.useMutation();
+  const noConsent = api.consent.noConsent.useMutation();
+
+  return (<>
+    {giveConsent.error?.message && (
+      <span>Something went wrong! {giveConsent.error.message}</span>
+    )}
+    {noConsent.error?.message && (
+      <span>Something went wrong! {noConsent.error.message}</span>
+    )}
     <div className="flex w-full items-center justify-center space-x-2">
-      <Button className="flex w-[50%]" variant={"destructive"} onClick={async (e) => {
+      <Button className="flex w-[50%]" variant={"destructive"} disabled={!buttonsEnabled} onClick={async (e) => {
         e.preventDefault();
-        redirect(await noConsent(challenge));
+        setButtonsEnabled(false);
+        redirect(await noConsent.mutateAsync(challenge));
       }}>
         Cancel
       </Button>
       <Button
         className="flex w-[50%]"
         variant={"default"}
+        disabled={!buttonsEnabled}
         onClick={async (e) => {
           e.preventDefault();
-          redirect(await giveConsent(challenge, user, scopes, audience));
+          setButtonsEnabled(false);
+          redirect(await giveConsent.mutateAsync(challenge));
         }}
       >
         Continue
       </Button>
     </div>
+    </>
   );
 }
