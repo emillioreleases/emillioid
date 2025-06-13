@@ -5,7 +5,6 @@ import ActionButtons from "./action-buttons";
 export default async function SignOut({ searchParams }: { searchParams: Promise<{ logout_challenge: string }> }) {
   const logoutChallenge = (await searchParams).logout_challenge;
   let request;
-  let returnUrl: string | undefined;
   if (logoutChallenge) {
     try {
       request = await ory.getOAuth2LogoutRequest({
@@ -48,7 +47,7 @@ export default async function SignOut({ searchParams }: { searchParams: Promise<
             </span>{", would you like to logout globally?"}
           </h5>
         </div>
-        <ActionButtons redirectUrl={returnUrl ?? "/portal"} logoutChallenge={logoutChallenge ?? null} />
+        <ActionButtons redirectUrl={"/portal"} logoutChallenge={logoutChallenge ?? null} />
       </main>
     </>
   );
