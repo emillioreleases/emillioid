@@ -1,8 +1,14 @@
 import Image from "next/image";
 import { ory } from "~/utils/ory";
 import ActionButtons from "./action-buttons";
+import { headers } from "next/headers";
+import { auth } from "~/server/auth";
+import { redirect } from "next/navigation";
 
 export default async function SignOut({ searchParams }: { searchParams: Promise<{ logout_challenge: string }> }) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
   const logoutChallenge = (await searchParams).logout_challenge;
   let request;
   if (logoutChallenge) {
@@ -23,6 +29,15 @@ export default async function SignOut({ searchParams }: { searchParams: Promise<
         </>
       );
     }
+    if (!session?.session) {
+      await ory.acceptOAuth2LogoutRequest({
+        logoutChallenge: logoutChallenge ?? "",
+      }).then((res) => redirect(res.data.redirect_to));
+    }
+  }
+
+  if (!session?.session) {
+    redirect("/portal");
   }
 
   return (
