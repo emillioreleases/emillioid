@@ -38,6 +38,8 @@ export default async function Consent({
     picture: string;
     groups: string[];
   };
+
+
   const context = consent.context as { login_method: string };
 
   console.log(context.login_method);

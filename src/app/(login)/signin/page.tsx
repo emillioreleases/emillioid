@@ -8,6 +8,7 @@ import { user } from "~/server/db/schema";
 import { eq } from "drizzle-orm";
 import SSOButtons from "./sso-buttons";
 import RobloxLink from "./roblox-link";
+import SigningIn from "./signing-in";
 
 export default async function SignIn({
   searchParams,
@@ -17,10 +18,11 @@ export default async function SignIn({
   let session = await auth.api.getSession({
     headers: await headers(),
   });
-  const { login_challenge } = await searchParams;
+  const sp = await searchParams;
   let request;
-  if (login_challenge) {
-    if (session?.user) {
+  if (sp.login_challenge) {
+    const login_challenge = sp.login_challenge;
+    if (session?.session?.createdAt && (Date.now() - session.session.createdAt.getTime()) > (5 * 60 * 1000)) {
       await auth.api.signOut({
         headers: await headers(),
       });
@@ -47,7 +49,7 @@ export default async function SignIn({
     }
 
     async function permitLogin(subject: string, loginMethod: string) {
-      await ory
+      const redirect = await ory
         .acceptOAuth2LoginRequest({
           loginChallenge: login_challenge ?? "",
           acceptOAuth2LoginRequest: {
@@ -58,7 +60,13 @@ export default async function SignIn({
             remember: true,
           },
         })
-        .then((res) => redirect(res.data.redirect_to));
+        .then((res) => res.data.redirect_to);
+
+      if (redirect) {
+        return (
+          <SigningIn redirectUrl={redirect} />
+        )
+      }
     }
 
     if (session?.user) {
@@ -67,7 +75,7 @@ export default async function SignIn({
           request.data.client.metadata &&
           !(request.data.client.metadata as { no_staff: boolean | undefined })
             .no_staff
-        ) {
+        ) { 
           await permitLogin(session.user.id, "myteam");
         } else {
           return (

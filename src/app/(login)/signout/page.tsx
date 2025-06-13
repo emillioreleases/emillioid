@@ -24,13 +24,8 @@ export default async function SignOut({ searchParams }: { searchParams: Promise<
         </>
       );
     }
-
-    await ory.acceptOAuth2LogoutRequest({
-      logoutChallenge: logoutChallenge ?? "",
-    }).then((res) => {
-      returnUrl = res.data.redirect_to;
-    })
   }
+
   return (
     <>
       <header className="justify-left mx-[-1rem] mt-[-1.5rem] mb-[-1.5rem] flex min-w-full items-stretch space-x-2 p-4">
@@ -53,7 +48,7 @@ export default async function SignOut({ searchParams }: { searchParams: Promise<
             </span>{", would you like to logout globally?"}
           </h5>
         </div>
-        <ActionButtons redirectUrl={returnUrl ?? "/portal"} />
+        <ActionButtons redirectUrl={returnUrl ?? "/portal"} logoutChallenge={logoutChallenge ?? null} />
       </main>
     </>
   );
