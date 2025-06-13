@@ -47,6 +47,7 @@ export default async function SignIn({
             context: {
               login_method: loginMethod,
             },
+            remember: true,
           },
         })
         .then((res) => redirect(res.data.redirect_to));
