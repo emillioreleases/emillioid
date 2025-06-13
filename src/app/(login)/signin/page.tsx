@@ -35,7 +35,12 @@ export default async function SignIn({
           <header className="mx-[-1rem] mt-[-1.5rem] mb-[-0.75rem] flex min-w-full items-stretch justify-center space-x-2 p-4">
             <Image src={"/logo.png"} alt={"Logo"} width={100} height={75} />
           </header>
-          <div>Something went wrong! {error.response?.data ? error.response.data.error_description: "Unknown Error"}</div>
+          <div>
+            Something went wrong!{" "}
+            {error.response?.data
+              ? error.response.data.error_description
+              : "Unknown Error"}
+          </div>
         </>
       );
     }
@@ -54,11 +59,7 @@ export default async function SignIn({
         })
         .then((res) => res.data.redirect_to);
 
-      if (redirect) {
-        return (
-          <SigningIn redirectUrl={redirect} />
-        )
-      }
+      return <SigningIn redirectUrl={redirect} />;
     }
 
     if (session?.user) {
@@ -67,7 +68,7 @@ export default async function SignIn({
           request.data.client.metadata &&
           !(request.data.client.metadata as { no_staff: boolean | undefined })
             .no_staff
-        ) { 
+        ) {
           await permitLogin(session.user.id, "myteam");
         } else {
           return (
