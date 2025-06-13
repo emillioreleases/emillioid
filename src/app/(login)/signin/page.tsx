@@ -14,12 +14,20 @@ export default async function SignIn({
 }: {
   searchParams: Promise<{ login_challenge: string }>;
 }) {
-  const session = await auth.api.getSession({
+  let session = await auth.api.getSession({
     headers: await headers(),
   });
   const { login_challenge } = await searchParams;
   let request;
   if (login_challenge) {
+    if (session?.user) {
+      await auth.api.signOut({
+        headers: await headers(),
+      });
+      session = await auth.api.getSession({
+        headers: await headers(),
+      });
+    }
     try {
       request = await ory.getOAuth2LoginRequest({
         loginChallenge: login_challenge ?? "",
@@ -73,7 +81,7 @@ export default async function SignIn({
         let method = "";
         const account = await db.query.account.findFirst({
           where(fields, operators) {
-            return operators.eq(fields.userId, session.user.id);
+            return operators.eq(fields.userId, session!.user.id);
           },
         });
 
