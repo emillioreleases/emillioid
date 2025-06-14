@@ -26,12 +26,6 @@ export default function ActionButtons({
   const router = useRouter();
 
   useEffect(() => {
-    if (!beingRouted) {
-      if (numberToWait === processed) {
-        setBeingRouted(true);
-        router.push(redirectUrl);
-      }
-    }
     if (
       !beingProcessed &&
       signout.data &&
@@ -48,6 +42,12 @@ export default function ActionButtons({
         setTimeout(() => {
           router.push(redirectUrl);
         }, 5000);
+      }
+    }
+    if (!beingRouted) {
+      if (numberToWait === processed && signout.isFetched && signout.isSuccess) {
+        setBeingRouted(true);
+        router.push(redirectUrl);
       }
     }
   }, [
