@@ -6,7 +6,7 @@ export default async function fetchUser(challenge: string): Promise<string | { m
     consentChallenge: challenge,
   }).then((res) => res.data);
   if (!consent) {
-    return "UNKNOWN_ERROR";
+    return "NO_CONSENT";
   }
   let user: {
     method: string;
@@ -15,7 +15,7 @@ export default async function fetchUser(challenge: string): Promise<string | { m
     preferred_username: string;
     picture: string;
     groups: string[];
-  };
+  } | null = null;
 
   const context = consent.context as { login_method: string };
 
@@ -62,7 +62,7 @@ export default async function fetchUser(challenge: string): Promise<string | { m
         });
 
         if (!accountData || accountData?.providerId !== "discord") {
-          return "UNKNOWN_ERROR";
+          return "NO_DISCORD_ACCOUNT_DATA";
         }
 
         const userData = await db.query.user.findFirst({
@@ -72,7 +72,7 @@ export default async function fetchUser(challenge: string): Promise<string | { m
         });
 
         if (!userData) {
-          return "UNKNOWN_ERROR";
+          return "NO_USER_IN_DB";
         }
 
         user = {
@@ -127,7 +127,7 @@ export default async function fetchUser(challenge: string): Promise<string | { m
         },
       });
       if (!userData) {
-        return "UNKNOWN_ERROR";
+        return "NO_USER_IN_DB";
       }
 
       user = {
@@ -141,7 +141,9 @@ export default async function fetchUser(challenge: string): Promise<string | { m
 
       break;
     default:
-      return "UNKNOWN_ERROR";
+      if (!user) return "NO_USER_OBJECT";
     }
+      
+    if (!user) return "NO_USER_OBJECT";
     return user;
 }
