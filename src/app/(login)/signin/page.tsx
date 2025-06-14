@@ -1,31 +1,39 @@
-import { ory } from "~/utils/ory";
 import Image from "next/image";
 import { auth } from "~/server/auth";
-import { headers } from "next/headers";
-import { db } from "~/server/db";
-import { user } from "~/server/db/schema";
-import { eq } from "drizzle-orm";
+import { cookies, headers as headersStore } from "next/headers";
 import SSOButtons from "./sso-buttons";
 import RobloxLink from "./roblox-link";
-import SigningIn from "./signing-in";
 import { redirect } from "next/navigation";
+import { api } from "~/trpc/server";
+import { getOryLoginRequest } from "~/utils/get-login-request";
+import SigningIn from "./signing-in";
 
 export default async function SignIn({
   searchParams,
 }: {
-  searchParams: Promise<{ login_challenge: string }>;
+  searchParams: Promise<{ login_challenge: string | undefined }>;
 }) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const cookieStore = await cookies();
+  const headers = await headersStore();
+  const [session, ms] = await Promise.all([
+    auth.api.getSession({
+      headers,
+    }),
+    auth.api.listDeviceSessions({
+      headers,
+    }),
+  ]);
+
   const sp = await searchParams;
+
+  const canLogin = await api.login.canLogin(sp.login_challenge);
+
   let request;
   if (sp.login_challenge) {
+    const prompt = await api.login.getPrompt(sp.login_challenge);
     const login_challenge = sp.login_challenge;
     try {
-      request = await ory.getOAuth2LoginRequest({
-        loginChallenge: login_challenge ?? "",
-      });
+      request = await getOryLoginRequest(login_challenge ?? "");
     } catch (e: unknown) {
       const error = e as {
         response: { data: { error: string; error_description: string } };
@@ -44,101 +52,47 @@ export default async function SignIn({
         </>
       );
     }
-
-    async function permitLogin(subject: string, loginMethod: string) {
-      const redirectUrl = await ory
-        .acceptOAuth2LoginRequest({
-          loginChallenge: login_challenge ?? "",
-          acceptOAuth2LoginRequest: {
-            subject,
-            context: {
-              login_method: loginMethod,
-            },
-            remember: true,
-          },
-        })
-        .then((res) => res.data.redirect_to);
-
-      return <SigningIn redirectUrl={redirectUrl} />;
-    }
-
     if (session?.user) {
-      if (session.user.email.endsWith("@bloxvalschools.com")) {
-        if (
-          request.data.client.metadata &&
-          !(request.data.client.metadata as { no_staff: boolean | undefined })
-            .no_staff
-        ) {
-          return await permitLogin(session.user.id, "myteam");
-        } else {
+      if (!canLogin.verdict) {
+        switch (canLogin.message) {
+          case "NO_STAFF":
+            return (
+              <div>
+                You cannot use your employee credentials to login to this site.
+                Please log out and try again.
+              </div>
+            );
+          case "NO_ROBLOX_ACCOUNT":
+            return (
+              <RobloxLink
+                clientName={request?.data.client.client_name ?? "My Apps"}
+              />
+            );
+        }
+      } else {
+        return <SigningIn login_challenge={login_challenge} prompt={prompt} promptBypass={cookieStore.has("bcps.auth.prompt-bypass")} clientName={request?.data.client.client_name ?? "My Apps"} sessions={ms} />
+      }
+    }
+  }
+  if (session?.user) {
+    if (!canLogin.verdict) {
+      switch (canLogin.message) {
+        case "NO_STAFF":
           return (
             <div>
               You cannot use your employee credentials to login to this site.
               Please log out and try again.
             </div>
           );
-        }
-      } else {
-        let method = "";
-        const account = await db.query.account.findFirst({
-          where(fields, operators) {
-            return operators.eq(fields.userId, session.user.id);
-          },
-        });
-
-        if (session.user.email.endsWith("@students.bloxvalschools.com")) {
-          if (!session.user.connectedRobloxAccount) {
-            await db
-              .update(user)
-              .set({
-                connectedRobloxAccount: session.user.email.split("@")[0],
-                verifiedWanted: true,
-              })
-              .where(eq(user.id, session.user.id));
-          }
-          method = "roblox";
-        } else {
-          method = "discord";
-        }
-
-        if (
-          !(
-            request.data.client.metadata as
-              | { discord_direct: boolean | undefined }
-              | undefined
-          )?.discord_direct &&
-          !session.user.connectedRobloxAccount
-        ) {
+        case "NO_ROBLOX_ACCOUNT":
           return (
             <RobloxLink
               clientName={request?.data.client.client_name ?? "My Apps"}
             />
           );
-        }
-
-        console.log(session.user.connectedRobloxAccount);
-
-        return await permitLogin(
-          !(
-            request.data.client.metadata as
-              | { discord_direct: boolean | undefined }
-              | undefined
-          )?.discord_direct ?  "roblox|"+session.user.connectedRobloxAccount! : "discord|"+account!.accountId,
-          method,
-        );
       }
-    }
-  }
-  if (session?.user) {
-    if (
-      !session.user.email.endsWith("bloxvalschools.com") &&
-      !session.user.connectedRobloxAccount
-    ) {
-      return (
-        <RobloxLink
-          clientName={request?.data.client.client_name ?? "My Apps"}
-        />
-      );
+    } else {
+      
     }
     redirect("/portal");
   }

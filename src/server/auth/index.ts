@@ -1,4 +1,5 @@
 import { betterAuth } from "better-auth";
+import { multiSession } from "better-auth/plugins";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { env } from "~/env";
 import { db } from "~/server/db"; // your drizzle instance
@@ -16,38 +17,41 @@ export const auth = betterAuth({
       overrideUserInfoOnSignIn: true,
     },
     roblox: {
-        clientId: env.AUTH_ROBLOX_ID,
-        clientSecret: env.AUTH_ROBLOX_SECRET,
-        overrideUserInfoOnSignIn: true,
-        async getUserInfo(accessToken) {
-            const oidcFetch = await fetch("https://apis.roblox.com/oauth/v1/userinfo", {
-                headers: {
-                    Authorization: `Bearer ${accessToken.accessToken}`
-                }
-            });
-            const oidcData = await oidcFetch.json() as {
-                sub: string;
-                name: string;
-                nickname: string;
-                preferred_username: string;
-                picture: string;
-                profile: string;
-            };
+      clientId: env.AUTH_ROBLOX_ID,
+      clientSecret: env.AUTH_ROBLOX_SECRET,
+      overrideUserInfoOnSignIn: true,
+      async getUserInfo(accessToken) {
+        const oidcFetch = await fetch(
+          "https://apis.roblox.com/oauth/v1/userinfo",
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken.accessToken}`,
+            },
+          },
+        );
+        const oidcData = (await oidcFetch.json()) as {
+          sub: string;
+          name: string;
+          nickname: string;
+          preferred_username: string;
+          picture: string;
+          profile: string;
+        };
 
-            return {
-                user: {
-                    id: oidcData.sub,
-                    email: oidcData.sub + "@students.bloxvalschools.com",
-                    name: oidcData.nickname+" (@"+oidcData.preferred_username+")",
-                    image: oidcData.picture,
-                    groups: JSON.stringify([]),
-                    emailVerified: true,
-                    connectedRobloxAccount: oidcData.sub,
-                    verifiedWanted: true,
-                },
-                data: null,
-            };
-        }
+        return {
+          user: {
+            id: oidcData.sub,
+            email: oidcData.sub + "@students.bloxvalschools.com",
+            name: oidcData.nickname + " (@" + oidcData.preferred_username + ")",
+            image: oidcData.picture,
+            groups: JSON.stringify([]),
+            emailVerified: true,
+            connectedRobloxAccount: oidcData.sub,
+            verifiedWanted: true,
+          },
+          data: null,
+        };
+      },
     },
     microsoft: {
       clientId: env.AUTH_MICROSOFT_ID,
@@ -105,6 +109,7 @@ export const auth = betterAuth({
       },
     },
   },
+  plugins: [multiSession()],
   user: {
     additionalFields: {
       connectedRobloxAccount: {
@@ -116,7 +121,7 @@ export const auth = betterAuth({
         type: "string",
         required: false,
         input: false, // don't allow user to set role
-      }
+      },
     },
   },
   session: {
@@ -132,8 +137,8 @@ export const auth = betterAuth({
         required: true,
         defaultValue: JSON.stringify([]),
         input: false, // don't allow user to set role
-      }
-    }
+      },
+    },
   },
   databaseHooks: {
     user: {
