@@ -7,7 +7,7 @@ import { api } from "~/trpc/react";
 export default function ActionButtons({
   logoutChallenge,
 }: {
-  logoutChallenge: string;
+  logoutChallenge: string | undefined;
 }) {
   const [buttonsEnabled, setButtonsEnabled] = useState(true);
   const noSignOut = api.accountManagement.signOut.useQuery(

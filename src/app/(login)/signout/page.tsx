@@ -15,10 +15,16 @@ export default async function SignOut({
   });
   const logoutChallenge = (await searchParams).logout_challenge;
   let request;
-  if (!logoutChallenge)
-    redirect(
-      "https://admiring-haibt-mnd205d9ew.projects.oryapis.com/oauth2/sessions/logout",
-    );
+  if (session) {
+    if (
+      !logoutChallenge &&
+      ((JSON.parse(session.session.orySessions) as string[]).length > 0 ||
+        (JSON.parse(session.session.oryClientSessions) as string[]).length > 0)
+    )
+      redirect(
+        "https://admiring-haibt-mnd205d9ew.projects.oryapis.com/oauth2/sessions/logout",
+      );
+  }
   try {
     request = await ory
       .getOAuth2LogoutRequest({
@@ -77,7 +83,7 @@ export default async function SignOut({
             {", would you like to logout globally?"}
           </h5>
         </div>
-        <ActionButtons logoutChallenge={logoutChallenge} />
+        <ActionButtons logoutChallenge={logoutChallenge ?? undefined} />
       </main>
     </>
   );

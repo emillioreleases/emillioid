@@ -43,11 +43,14 @@ export const accountManagementRouter = createTRPCRouter({
   signOut: protectedProcedure
     .input(
       z
-        .object({ logout_challenge: z.string(), accepted: z.boolean() })
+        .object({
+          logout_challenge: z.string().optional(),
+          accepted: z.boolean(),
+        })
         .optional(),
     )
     .query(async ({ ctx, input }) => {
-      if (input) {
+      if (input?.logout_challenge) {
         let challenge;
         try {
           challenge = await ory.getOAuth2LogoutRequest({
@@ -83,32 +86,40 @@ export const accountManagementRouter = createTRPCRouter({
         }
       } else {
         const oryClients = await ory.listOAuth2Clients();
-        try {
-          await Promise.all([
-            auth.api.signOut({
-              headers: ctx.headers,
-            }),
-            ...(JSON.parse(ctx.session.session.orySessions) as string[]).map(
-              (sid: string) =>
-                Promise.all([
-                  ory.revokeOAuth2LoginSessions({
-                    sid: sid,
-                  }),
-                  ...oryClients.data
-                    .filter(
-                      (c) =>
-                        c.frontchannel_logout_uri &&
-                        ctx.session.session.oryClientSessions.includes(
-                          c.client_id!,
-                        ),
-                    )
-                    .map((c) =>
-                      fetch(c.frontchannel_logout_uri + "?sid=" + sid),
-                    ),
-                ]),
-            ),
-          ]);
-        } catch {}
+        if (!input) {
+          try {
+            await Promise.all([
+              auth.api.signOut({
+                headers: ctx.headers,
+              }),
+              ...(JSON.parse(ctx.session.session.orySessions) as string[]).map(
+                (sid: string) =>
+                  Promise.all([
+                    ory.revokeOAuth2LoginSessions({
+                      sid: sid,
+                    }),
+                    ...oryClients.data
+                      .filter(
+                        (c) =>
+                          c.frontchannel_logout_uri &&
+                          ctx.session.session.oryClientSessions.includes(
+                            c.client_id!,
+                          ),
+                      )
+                      .map((c) =>
+                        fetch(c.frontchannel_logout_uri + "?sid=" + sid),
+                      ),
+                  ]),
+              ),
+            ]);
+          } catch {}
+        }
+
+        if (input?.accepted) {
+          await auth.api.signOut({
+            headers: ctx.headers,
+          });
+        }
         return {
           message: "SUCCESS",
           data: "/portal",
