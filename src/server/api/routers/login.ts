@@ -148,7 +148,7 @@ export const loginRouter = createTRPCRouter({
         .acceptOAuth2LoginRequest({
           loginChallenge: input ?? "",
           acceptOAuth2LoginRequest: {
-            aubjec,
+            subject,
             context: {
               login_method: method,
             },
