@@ -1,5 +1,5 @@
 import { permanentRedirect } from "next/navigation";
 
 export function GET() {
-  permanentRedirect("/portal");
+  return permanentRedirect("/portal");
 }
