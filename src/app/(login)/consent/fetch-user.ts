@@ -123,7 +123,7 @@ export default async function fetchUser(challenge: string): Promise<string | { m
       }
       const userData = await db.query.user.findFirst({
         where(fields, operators) {
-          return operators.eq(fields.id, consent.subject!);
+          return operators.eq(fields.id, consent.subject!.split("|")[1]!);
         },
       });
       if (!userData) {
