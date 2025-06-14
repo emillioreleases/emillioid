@@ -9,6 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { AlertCircleIcon } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { authClient } from "~/utils/auth-client";
+import { useRouter } from "next/navigation";
 
 export default function SigningIn({
   login_challenge,
@@ -27,21 +28,25 @@ export default function SigningIn({
   }[];
 }) {
   const [error, setError] = useState<string | null>(null);
+  const [loginChallenge] = useState(login_challenge);
   const [processed, setProcessed] = useState(false);
   const [currentPrompt, setCurrentPrompt] = useState<string | null>(prompt);
+  const router = useRouter();
   const login = api.login.loginUser.useMutation();
 
   useEffect(() => {
     function userRedirect(url: string) {
       if (typeof window !== "undefined") {
         window.location.href = url;
+      } else {
+        router.push(url);
       }
     }
 
     if (currentPrompt === "finished" && !processed) {
       setProcessed(true);
       void login
-        .mutateAsync(login_challenge)
+        .mutateAsync(loginChallenge)
         .then((res) => {
           userRedirect(res);
         })
@@ -50,7 +55,7 @@ export default function SigningIn({
           setError(e.message);
         });
     }
-  }, [currentPrompt, login, login_challenge, processed]);
+  }, [currentPrompt, login, loginChallenge, processed, router]);
 
   const errorElement = error ? (
     <Alert variant="destructive">
