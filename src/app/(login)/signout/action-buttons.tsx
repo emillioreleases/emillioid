@@ -1,66 +1,28 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { Button } from "~/components/ui/button";
-import { oryLogout } from "./server-actions";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { api } from "~/trpc/react";
 
 export default function ActionButtons({
-  redirectUrl,
   logoutChallenge,
 }: {
-  redirectUrl: string;
-  logoutChallenge: string | null;
+  logoutChallenge: string;
 }) {
-  const [beingProcessed, setBeingProcessed] = useState(false);
-  const [beingRouted, setBeingRouted] = useState(false);
   const [buttonsEnabled, setButtonsEnabled] = useState(true);
-  const [numberToWait, setNumberToWait] = useState(0);
-  const [processed, setProcessed] = useState(0);
-  const signout = api.accountManagement.signOut.useQuery(
-    logoutChallenge ?? undefined,
+  const noSignOut = api.accountManagement.signOut.useQuery(
+    { logout_challenge: logoutChallenge, accepted: false },
+    {
+      enabled: false,
+    },
+  );
+  const signOut = api.accountManagement.signOut.useQuery(
+    { logout_challenge: logoutChallenge, accepted: true },
     {
       enabled: false,
     },
   );
   const router = useRouter();
-
-  useEffect(() => {
-    if (
-      !beingProcessed &&
-      signout.data &&
-      signout.isSuccess &&
-      signout.isFetched
-    ) {
-      if (typeof signout.data.data === "string") {
-        setBeingRouted(true);
-        setBeingProcessed(true);
-        router.push(signout.data.data);
-      } else {
-        setBeingProcessed(true);
-        setNumberToWait(signout.data.data.length);
-        setTimeout(() => {
-          router.push(redirectUrl);
-        }, 5000);
-      }
-    }
-    if (!beingRouted) {
-      if (numberToWait === processed && signout.isFetched && signout.isSuccess) {
-        setBeingRouted(true);
-        router.push(redirectUrl);
-      }
-    }
-  }, [
-    beingRouted,
-    beingProcessed,
-    numberToWait,
-    redirectUrl,
-    router,
-    signout.data,
-    signout.isFetched,
-    signout.isSuccess,
-    processed,
-  ]);
 
   return (
     <div className="flex w-full items-center justify-center space-x-2">
@@ -70,12 +32,13 @@ export default function ActionButtons({
         disabled={!buttonsEnabled}
         onClick={async () => {
           setButtonsEnabled(false);
-          if (logoutChallenge) {
+          const signoutData = await noSignOut.refetch();
+          if (signoutData.isSuccess) {
             if (typeof window !== "undefined") {
-              window.location.href = (await oryLogout(logoutChallenge, false))!;
+              window.location.href = signoutData.data.data;
+            } else {
+              router.push(signoutData.data.data);
             }
-          } else {
-            router.push(redirectUrl);
           }
         }}
       >
@@ -87,23 +50,18 @@ export default function ActionButtons({
         disabled={!buttonsEnabled}
         onClick={async () => {
           setButtonsEnabled(false);
-          await signout.refetch();
+          const signoutData = await signOut.refetch();
+          if (signoutData.isSuccess) {
+            if (typeof window !== "undefined") {
+              window.location.href = signoutData.data.data;
+            } else {
+              router.push(signoutData.data.data);
+            }
+          }
         }}
       >
         Yes
       </Button>
-      {(signout.isFetched && signout.isSuccess && signout.data &&
-        Array.isArray(signout.data.data)) &&
-        signout.data.data.map((s) => (
-          <iframe
-            key={s}
-            src={s}
-            onLoad={() => {
-              setProcessed(processed + 1);
-            }}
-            style={{ display: "none" }}
-          ></iframe>
-        ))}
     </div>
   );
 }

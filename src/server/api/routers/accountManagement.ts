@@ -41,12 +41,17 @@ export const accountManagementRouter = createTRPCRouter({
     }
   }),
   signOut: protectedProcedure
-    .input(z.string().optional())
+    .input(
+      z
+        .object({ logout_challenge: z.string(), accepted: z.boolean() })
+        .optional(),
+    )
     .query(async ({ ctx, input }) => {
       if (input) {
+        let challenge;
         try {
-          await ory.getOAuth2LogoutRequest({
-            logoutChallenge: input,
+          challenge = await ory.getOAuth2LogoutRequest({
+            logoutChallenge: input.logout_challenge,
           });
         } catch (e) {
           console.log(e);
@@ -55,14 +60,27 @@ export const accountManagementRouter = createTRPCRouter({
             message: "Invalid request",
           });
         }
-        return {
-          message: "SUCCESS",
-          data: await ory
-            .acceptOAuth2LogoutRequest({
-              logoutChallenge: input,
-            })
-            .then((res) => res.data.redirect_to)
-        };
+        if (input.accepted) {
+          return {
+            message: "SUCCESS",
+            data: await ory
+              .acceptOAuth2LogoutRequest({
+                logoutChallenge: input.logout_challenge,
+              })
+              .then((res) => res.data.redirect_to),
+          };
+        } else {
+          await ory.rejectOAuth2LogoutRequest({
+            logoutChallenge: input.logout_challenge,
+          });
+          return {
+            message: "SUCCESS",
+            data: new URL(
+              challenge.data.request_url!,
+              "https://accounts.bloxvalschools.com",
+            ).searchParams.get("post_logout_redirect_uri")!,
+          };
+        }
       } else {
         const oryClients = await ory.listOAuth2Clients();
         try {
@@ -76,21 +94,24 @@ export const accountManagementRouter = createTRPCRouter({
                   ory.revokeOAuth2LoginSessions({
                     sid: sid,
                   }),
+                  ...oryClients.data
+                    .filter(
+                      (c) =>
+                        c.frontchannel_logout_uri &&
+                        ctx.session.session.oryClientSessions.includes(
+                          c.client_id!,
+                        ),
+                    )
+                    .map((c) =>
+                      fetch(c.frontchannel_logout_uri + "?sid=" + sid),
+                    ),
                 ]),
             ),
           ]);
         } catch {}
         return {
           message: "SUCCESS",
-          data: oryClients.data
-            .filter(
-              (c) =>
-                c.frontchannel_logout_uri &&
-                (
-                  JSON.parse(ctx.session.session.oryClientSessions) as string[]
-                ).includes(c.client_id!),
-            )
-            .map((c) => c.frontchannel_logout_uri),
+          data: "/portal",
         };
       }
     }),
