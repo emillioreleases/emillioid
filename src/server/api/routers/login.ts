@@ -138,17 +138,17 @@ export const loginRouter = createTRPCRouter({
       });
 
       const subject =
-        method === "myteam"
+        (method === "myteam"
           ? "myteam|" + account!.accountId
-          : allowed.message === "with_discord_direct"
+          : (allowed.message === "with_discord_direct"
             ? method + "|" + account!.accountId
-            : "roblox|" + ctx.session.user.connectedRobloxAccount!;
+            : "roblox|" + ctx.session.user.connectedRobloxAccount!));
 
       return await ory
         .acceptOAuth2LoginRequest({
           loginChallenge: input ?? "",
           acceptOAuth2LoginRequest: {
-            subject,
+            aubjec,
             context: {
               login_method: method,
             },
