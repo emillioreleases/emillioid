@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { api } from "~/trpc/server";
 import { getOryLoginRequest } from "~/utils/get-login-request";
 import SigningIn from "./signing-in";
+import LoginTemplate from "./login-template";
 
 export default async function SignIn({
   searchParams,
@@ -97,7 +98,10 @@ export default async function SignIn({
     redirect("/portal");
   }
   return (
-    <>
+    <LoginTemplate title={"Welcome!"} description={<>Please login to continue to{" "}
+    <span className="font-bold">
+      {request?.data.client.client_name ?? "My Apps"}
+    </span></>} partnerLogo={request?.data.client.logo_uri} havePtLinks>
       <header className="justify-left mx-[-1rem] mt-[-1.5rem] mb-[-1.5rem] flex min-w-full items-stretch space-x-2 p-4">
         <Image src={"/logo.png"} alt={"Logo"} width={100} height={75} />
         {request?.data.client.logo_uri && (
@@ -127,6 +131,6 @@ export default async function SignIn({
           <a href="https://www.bloxvalschools.com/page/tos">Terms of Use</a>
         </div>
       </main>
-    </>
+    </LoginTemplate>
   );
 }

@@ -3,18 +3,27 @@ import Image from "next/image";
 export default function LoginTemplate({
   title,
   description,
-  children,
+  partnerLogo,
   havePtLinks,
+  children,
 }: {
   title: React.ReactNode | string;
   description: React.ReactNode | string;
-  children?: React.ReactNode;
+  partnerLogo?: string;
   havePtLinks?: boolean;
+  children?: React.ReactNode;
 }) {
   return (
     <>
       <header className="justify-left mx-[-1rem] mt-[-1.5rem] mb-[-1.5rem] flex min-w-full items-stretch space-x-2 p-4">
         <Image src={"/logo.png"} alt={"Logo"} width={100} height={75} />
+        {partnerLogo && (
+          <>
+            <div className="h-auto w-[0.1px] border-[0.05px] border-white" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={partnerLogo} alt={"Logo"} />
+          </>
+        )}
       </header>
       <main className="justify-left mb-12 flex w-full flex-col items-center space-y-4 sm:mb-5 sm:h-fit">
         <div className="flex w-full flex-col items-start justify-center">

@@ -89,14 +89,19 @@ export const loginRouter = createTRPCRouter({
     }),
 
   getPrompt: publicProcedure.input(z.string()).query(async ({ input }) => {
-    return new URL(
-      (
-        await ory.getOAuth2LoginRequest({
-          loginChallenge: input,
-        })
-      ).data.request_url,
-      "https://accounts.bloxvalschools.com",
-    ).searchParams.get("prompt");
+    try {
+      const loginRequest = await ory.getOAuth2LoginRequest({
+        loginChallenge: input,
+      })
+      return new URL(
+        (
+          loginRequest
+        ).data.request_url,
+        "https://accounts.bloxvalschools.com",
+      ).searchParams.get("prompt");
+    } catch  {
+      return null;
+    }
   }),
 
   loginUser: protectedProcedure
@@ -151,5 +156,9 @@ export const loginRouter = createTRPCRouter({
           },
         })
         .then((res) => res.data.redirect_to);
+    }),
+  requestBypass: protectedProcedure
+    .mutation(async ({ ctx }) => {
+      ctx.headers.set("Set-Cookie", "bcps.auth.prompt-bypass=true; HttpOnly");
     }),
 });
