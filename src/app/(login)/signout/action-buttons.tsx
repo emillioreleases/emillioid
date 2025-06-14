@@ -93,8 +93,8 @@ export default function ActionButtons({
         Yes
       </Button>
       {(signout.isFetched && signout.isSuccess && signout.data &&
-        Array.isArray(signout.data)) &&
-        signout.data.map((s: string) => (
+        Array.isArray(signout.data.data)) &&
+        signout.data.data.map((s) => (
           <iframe
             key={s}
             src={s}
