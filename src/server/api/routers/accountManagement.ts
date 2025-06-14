@@ -64,6 +64,9 @@ export const accountManagementRouter = createTRPCRouter({
           });
         }
         if (input.accepted) {
+          await auth.api.signOut({
+            headers: ctx.headers,
+          });
           return {
             message: "SUCCESS",
             data: await ory

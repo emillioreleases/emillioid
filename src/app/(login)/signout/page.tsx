@@ -15,11 +15,13 @@ export default async function SignOut({
   });
   const logoutChallenge = (await searchParams).logout_challenge;
   let request;
-  if (session) {
+  if (!logoutChallenge) {
     if (
-      !logoutChallenge &&
-      ((JSON.parse(session.session.orySessions) as string[]).length > 0 ||
-        (JSON.parse(session.session.oryClientSessions) as string[]).length > 0)
+      !session ||
+      (session &&
+        ((JSON.parse(session.session.orySessions) as string[]).length > 0 ||
+          (JSON.parse(session.session.oryClientSessions) as string[]).length >
+            0))
     )
       redirect(
         "https://admiring-haibt-mnd205d9ew.projects.oryapis.com/oauth2/sessions/logout",
