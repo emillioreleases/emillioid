@@ -1,6 +1,5 @@
 "use client";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import type { Session, User } from "better-auth/types";
 import { api } from "~/trpc/react";
 import LoginTemplate from "./login-template";
@@ -31,14 +30,11 @@ export default function SigningIn({
   const [processed, setProcessed] = useState(false);
   const [currentPrompt, setCurrentPrompt] = useState<string | null>(prompt);
   const login = api.login.loginUser.useMutation();
-  const router = useRouter();
 
   useEffect(() => {
     function userRedirect(url: string) {
       if (typeof window !== "undefined") {
         window.location.href = url;
-      } else {
-        router.push(url);
       }
     }
 
@@ -54,7 +50,7 @@ export default function SigningIn({
           setError(e.message);
         });
     }
-  }, [currentPrompt, login, login_challenge, processed, router]);
+  }, [currentPrompt, login, login_challenge, processed]);
 
   const errorElement = error ? (
     <Alert variant="destructive">
@@ -97,11 +93,10 @@ export default function SigningIn({
                   className="flex w-full justify-start items-center space-x-2"
                   onClick={async (e) => {
                     e.preventDefault();
-                    setCurrentPrompt("finished");
                     await authClient.multiSession.setActive({
                       sessionToken: s.session.token
                     });
-                    await login.mutateAsync(s.session.id);
+                    setCurrentPrompt("finished");
                   }}
                 >
                   <Image

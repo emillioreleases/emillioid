@@ -26,30 +26,31 @@ export default async function SignOut({
       redirect(
         "https://admiring-haibt-mnd205d9ew.projects.oryapis.com/oauth2/sessions/logout",
       );
-  }
-  try {
-    request = await ory
-      .getOAuth2LogoutRequest({
-        logoutChallenge: logoutChallenge ?? "",
-      })
-      .then((res) => res.data);
-  } catch (e: unknown) {
-    const error = e as {
-      response: { data: { error: string; error_description: string } };
-    };
-    return (
-      <>
-        <header className="mx-[-1rem] mt-[-1.5rem] mb-[-0.75rem] flex min-w-full items-stretch justify-center space-x-2 p-4">
-          <Image src={"/logo.png"} alt={"Logo"} width={100} height={75} />
-        </header>
-        <div>
-          Something went wrong!{" "}
-          {error.response?.data
-            ? error.response.data.error_description
-            : "Unknown Error"}
-        </div>
-      </>
-    );
+  } else {
+    try {
+      request = await ory
+        .getOAuth2LogoutRequest({
+          logoutChallenge: logoutChallenge ?? "",
+        })
+        .then((res) => res.data);
+    } catch (e: unknown) {
+      const error = e as {
+        response: { data: { error: string; error_description: string } };
+      };
+      return (
+        <>
+          <header className="mx-[-1rem] mt-[-1.5rem] mb-[-0.75rem] flex min-w-full items-stretch justify-center space-x-2 p-4">
+            <Image src={"/logo.png"} alt={"Logo"} width={100} height={75} />
+          </header>
+          <div>
+            Something went wrong!{" "}
+            {error.response?.data
+              ? error.response.data.error_description
+              : "Unknown Error"}
+          </div>
+        </>
+      );
+    }
   }
 
   if (!session?.session) {
