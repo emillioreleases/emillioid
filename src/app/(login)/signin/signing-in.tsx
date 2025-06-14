@@ -1,12 +1,13 @@
 "use client";
 import Image from "next/image";
-import { redirect } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 export default function SigningIn({ redirectUrl }: { redirectUrl: string }) {
+  const router = useRouter();
   if (typeof window !== "undefined") {
     window.location.href = redirectUrl;
   } else {
-    redirect(redirectUrl);
+    router.push(redirectUrl);
   }
 
   return (

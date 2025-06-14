@@ -46,7 +46,7 @@ export default async function SignIn({
     }
 
     async function permitLogin(subject: string, loginMethod: string) {
-      const redirect = await ory
+      const redirectUrl = await ory
         .acceptOAuth2LoginRequest({
           loginChallenge: login_challenge ?? "",
           acceptOAuth2LoginRequest: {
@@ -59,7 +59,7 @@ export default async function SignIn({
         })
         .then((res) => res.data.redirect_to);
 
-      return <SigningIn redirectUrl={redirect} />;
+      return <SigningIn redirectUrl={redirectUrl} />;
     }
 
     if (session?.user) {
