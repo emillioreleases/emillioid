@@ -22,9 +22,9 @@ export default async function fetchUser(challenge: string): Promise<string | { m
   switch (context.login_method.toLowerCase()) {
     case "roblox":
       const [userFetch, avatarFetch] = await Promise.all([
-        fetch(`https://users.roblox.com/v1/users/${consent.subject!}`),
+        fetch(`https://users.roblox.com/v1/users/${consent.subject!.split("|")[1]!}`),
         fetch(
-          `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${consent.subject}&format=Png&size=720x720`,
+          `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${consent.subject!.split("|")[1]!}&format=Png&size=720x720`,
         ),
       ]);
       const [userData1, avatar] = (await Promise.all([
@@ -85,9 +85,9 @@ export default async function fetchUser(challenge: string): Promise<string | { m
         };
       } else {
         const [userFetch, avatarFetch] = await Promise.all([
-          fetch(`https://users.roblox.com/v1/users/${consent.subject!}`),
+          fetch(`https://users.roblox.com/v1/users/${consent.subject!.split("|")[1]!}`),
           fetch(
-            `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${consent.subject}&format=Png&size=720x720`,
+            `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${consent.subject!.split("|")[1]!}&format=Png&size=720x720`,
           ),
         ]);
         const [userData, avatar] = (await Promise.all([
