@@ -139,7 +139,7 @@ export const loginRouter = createTRPCRouter({
 
       const subject =
         (method === "myteam"
-          ? "myteam|" + account!.accountId
+          ? "myteam|" + ctx.session.user.id
           : (allowed.message === "with_discord_direct"
             ? method + "|" + account!.accountId
             : "roblox|" + ctx.session.user.connectedRobloxAccount!));
