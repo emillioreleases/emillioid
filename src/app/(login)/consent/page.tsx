@@ -61,7 +61,7 @@ export default async function Consent({
   if (consent.skip || consent.client?.skip_consent) {
     let returnUrl;
     try {
-      returnUrl = await api.consent.noConsent(consent.challenge);
+      returnUrl = await api.consent.giveConsent(consent.challenge);
     } catch (e) {
       const error = e as TRPCError;
       return <div>Something went wrong! {error.message}</div>;
