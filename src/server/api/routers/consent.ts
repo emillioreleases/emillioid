@@ -32,7 +32,7 @@ export const consentRouter = createTRPCRouter({
       if (!consent) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "No consent" });
       }
-      const user = await fetchUser(consent.challenge);
+      const user = await fetchUser(input);
       if (typeof user === "string") {
         throw new TRPCError({ code: "BAD_REQUEST", message: user });
       }
