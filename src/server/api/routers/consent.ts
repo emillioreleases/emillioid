@@ -4,11 +4,26 @@ import { createTRPCRouter, protectedProcedure } from "../trpc";
 import z from "zod";
 import { TRPCError } from "@trpc/server";
 import { consentAccept } from "~/utils/accept-consent";
+import { session } from "~/server/db/schema";
+import { eq } from "drizzle-orm";
 
 export const consentRouter = createTRPCRouter({
+  getConsent: protectedProcedure
+    .input(z.string())
+    .query(async ({ input }) => {
+      const consent = await ory
+        .getOAuth2ConsentRequest({
+          consentChallenge: input,
+        })
+        .then((res) => res.data);
+      if (!consent) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "No consent" });
+      }
+      return consent;
+    }),
   giveConsent: protectedProcedure
     .input(z.string())
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const consent = await ory
         .getOAuth2ConsentRequest({
           consentChallenge: input,
@@ -21,7 +36,15 @@ export const consentRouter = createTRPCRouter({
       if (typeof user === "string") {
         throw new TRPCError({ code: "BAD_REQUEST", message: user });
       }
-      return consentAccept(
+      if (consent.client?.frontchannel_logout_uri) {
+        await ctx.db.update(session).set({
+          oryClientSessions: JSON.stringify([
+            ...(JSON.parse(ctx.session.session.oryClientSessions) as string[] ?? []).filter((s) => s !== consent.login_session_id),
+            consent.client?.frontchannel_logout_uri,
+          ]),
+        }).where(eq(session.id, ctx.session.session.id));
+      }
+      return await consentAccept(
         consent.challenge,
         user,
         consent.requested_scope!,

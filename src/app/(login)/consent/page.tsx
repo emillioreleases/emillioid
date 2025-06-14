@@ -7,6 +7,9 @@ import { auth } from "~/server/auth";
 import { headers } from "next/headers";
 import { api } from "~/trpc/server";
 import { type TRPCError } from "@trpc/server";
+import { db } from "~/server/db";
+import { session as sessions } from "~/server/db/schema";
+import { eq } from "drizzle-orm";
 
 export default async function Consent({
   searchParams,
@@ -51,6 +54,20 @@ export default async function Consent({
         })
         .then((res) => res.data.redirect_to),
     );
+  }
+
+  if (!session.session.orySessions.includes(`"${consent.login_session_id}"`)) {
+    await db
+      .update(sessions)
+      .set({
+        orySessions: JSON.stringify([
+          ...(
+            (JSON.parse(session.session.orySessions) as string[]) ?? []
+          ).filter((s) => s !== consent.login_session_id),
+          consent.login_session_id,
+        ]),
+      })
+      .where(eq(sessions.id, session.session.id));
   }
 
   const context = consent.context as { login_method: string };

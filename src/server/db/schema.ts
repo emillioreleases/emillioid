@@ -69,7 +69,8 @@ export const session = createTable("session", (d) => ({
     .text("user_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
-  orySessions: d.text("ory_sessions"),
+  orySessions: d.text("ory_sessions").default(JSON.stringify([])).notNull(),
+  oryClientSessions: d.text("ory_client_sessions").default(JSON.stringify([])).notNull(),
 }));
 
 export const account = createTable("account", (d) => ({

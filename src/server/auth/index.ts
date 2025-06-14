@@ -119,6 +119,22 @@ export const auth = betterAuth({
       }
     },
   },
+  session: {
+    additionalFields: {
+      orySessions: {
+        type: "string",
+        required: true,
+        defaultValue: JSON.stringify([]),
+        input: false, // don't allow user to set role
+      },
+      oryClientSessions: {
+        type: "string",
+        required: true,
+        defaultValue: JSON.stringify([]),
+        input: false, // don't allow user to set role
+      }
+    }
+  },
   databaseHooks: {
     user: {
       create: {
