@@ -2,7 +2,7 @@
 import { useRouter } from "next/navigation";
 import { Button } from "~/components/ui/button";
 import { oryLogout } from "./server-actions";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { api } from "~/trpc/react";
 
 export default function ActionButtons({
@@ -12,11 +12,56 @@ export default function ActionButtons({
   redirectUrl: string;
   logoutChallenge: string | null;
 }) {
+  const [beingProcessed, setBeingProcessed] = useState(false);
+  const [beingRouted, setBeingRouted] = useState(false);
   const [buttonsEnabled, setButtonsEnabled] = useState(true);
-  const signout = api.accountManagement.signOut.useQuery(undefined, {
-    enabled: false,
-  })
+  const [numberToWait, setNumberToWait] = useState(0);
+  const [processed, setProcessed] = useState(0);
+  const signout = api.accountManagement.signOut.useQuery(
+    logoutChallenge ?? undefined,
+    {
+      enabled: false,
+    },
+  );
   const router = useRouter();
+
+  useEffect(() => {
+    if (!beingRouted) {
+      if (numberToWait === processed) {
+        setBeingRouted(true);
+        router.push(redirectUrl);
+      }
+    }
+    if (
+      !beingProcessed &&
+      signout.data &&
+      signout.isSuccess &&
+      signout.isFetched
+    ) {
+      if (typeof signout.data.data === "string") {
+        setBeingRouted(true);
+        setBeingProcessed(true);
+        router.push(signout.data.data);
+      } else {
+        setBeingProcessed(true);
+        setNumberToWait(signout.data.data.length);
+        setTimeout(() => {
+          router.push(redirectUrl);
+        }, 5000);
+      }
+    }
+  }, [
+    beingRouted,
+    beingProcessed,
+    numberToWait,
+    redirectUrl,
+    router,
+    signout.data,
+    signout.isFetched,
+    signout.isSuccess,
+    processed,
+  ]);
+
   return (
     <div className="flex w-full items-center justify-center space-x-2">
       <Button
@@ -42,18 +87,23 @@ export default function ActionButtons({
         disabled={!buttonsEnabled}
         onClick={async () => {
           setButtonsEnabled(false);
-          if (logoutChallenge) {
-            if (typeof window !== "undefined") {
-              window.location.href = (await oryLogout(logoutChallenge, true))!;
-            }
-          } else {
-            await signout.refetch();
-            router.push(redirectUrl);
-          }
+          await signout.refetch();
         }}
       >
         Yes
       </Button>
+      {signout.data &&
+        Array.isArray(signout.data) &&
+        signout.data.map((s: string) => (
+          <iframe
+            key={s}
+            src={s}
+            onLoad={() => {
+              setProcessed(processed + 1);
+            }}
+            style={{ display: "none" }}
+          ></iframe>
+        ))}
     </div>
   );
 }

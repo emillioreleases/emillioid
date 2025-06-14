@@ -55,30 +55,43 @@ export const accountManagementRouter = createTRPCRouter({
             message: "Invalid request",
           });
         }
-        return await ory
-          .acceptOAuth2LogoutRequest({
-            logoutChallenge: input,
-          })
-          .then((res) => res.data.redirect_to);
+        return {
+          message: "SUCCESS",
+          data: await ory
+            .acceptOAuth2LogoutRequest({
+              logoutChallenge: input,
+            })
+            .then((res) => res.data.redirect_to)
+        };
       } else {
+        const oryClients = await ory.listOAuth2Clients();
         try {
           await Promise.all([
             auth.api.signOut({
               headers: ctx.headers,
             }),
-            ...(JSON.parse(ctx.session.session.orySessions) as string[]).map((sid: string) =>
-              Promise.all([
-                ory.revokeOAuth2LoginSessions({
-                  sid: sid,
-                }),
-                ...(JSON.parse(ctx.session.session.oryClientSessions) as string[]).map((logoutUrl: string) =>
-                  fetch(logoutUrl + "?sid=" + sid),
-                ),
-              ])
+            ...(JSON.parse(ctx.session.session.orySessions) as string[]).map(
+              (sid: string) =>
+                Promise.all([
+                  ory.revokeOAuth2LoginSessions({
+                    sid: sid,
+                  }),
+                ]),
             ),
           ]);
         } catch {}
-        return "SUCCESS";
+        return {
+          message: "SUCCESS",
+          data: oryClients.data
+            .filter(
+              (c) =>
+                c.frontchannel_logout_uri &&
+                (
+                  JSON.parse(ctx.session.session.oryClientSessions) as string[]
+                ).includes(c.client_id!),
+            )
+            .map((c) => c.frontchannel_logout_uri),
+        };
       }
     }),
 });

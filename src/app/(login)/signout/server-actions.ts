@@ -21,7 +21,7 @@ export async function oryLogout(logoutChallenge: string, choice: boolean) {
   if (!choice) {
     db.update(sessions).set({
       oryClientSessions: JSON.stringify([
-        ...(JSON.parse(session.session.oryClientSessions) as string[] ?? []).filter((s) => s !== logoutChallenge),
+        ...(JSON.parse(session.session.oryClientSessions) as string[] ?? []).filter((s) => s !== request.client!.client_id),
       ]),
     }).where(eq(sessions.id, session.session.id)); 
     await ory.rejectOAuth2LogoutRequest({

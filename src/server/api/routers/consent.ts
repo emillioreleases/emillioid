@@ -39,8 +39,8 @@ export const consentRouter = createTRPCRouter({
       if (consent.client?.frontchannel_logout_uri) {
         await ctx.db.update(session).set({
           oryClientSessions: JSON.stringify([
-            ...(JSON.parse(ctx.session.session.oryClientSessions) as string[] ?? []).filter((s) => s !== consent.login_session_id),
-            consent.client?.frontchannel_logout_uri,
+            ...(JSON.parse(ctx.session.session.oryClientSessions) as string[] ?? []).filter((s) => s !== consent.client?.client_id),
+            consent.client?.client_id,
           ]),
         }).where(eq(session.id, ctx.session.session.id));
       }
