@@ -77,7 +77,12 @@ export default async function SignIn({
             prompt={prompt}
             promptBypass={cookieStore.has("bcps.auth.prompt-bypass")}
             clientName={request?.data.client.client_name ?? "My Apps"}
-            sessions={[session, ...ms.filter((s) => s.session.id !== session.session.id).map((s) => s)]}
+            sessions={[
+              session,
+              ...ms
+                .filter((s) => s.session.id !== session.session.id)
+                .map((s) => s),
+            ]}
           />
         );
       }
@@ -118,35 +123,7 @@ export default async function SignIn({
       partnerLogo={request?.data.client.logo_uri}
       havePtLinks
     >
-      <header className="justify-left mx-[-1rem] mt-[-1.5rem] mb-[-1.5rem] flex min-w-full items-stretch space-x-2 p-4">
-        <Image src={"/logo.png"} alt={"Logo"} width={100} height={75} />
-        {request?.data.client.logo_uri && (
-          <>
-            <div className="h-auto w-[0.1px] border-[0.05px] border-white" />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={request.data.client.logo_uri} alt={"Logo"} />
-          </>
-        )}
-      </header>
-      <main className="justify-left mb-12 flex w-full flex-col items-center space-y-4 sm:mb-5 sm:h-fit">
-        <div className="flex w-full flex-col items-start justify-center">
-          <h1 className="text-2xl font-bold text-white">Welcome!</h1>
-          <h5 className="text-sm text-gray-400">
-            Please login to continue to{" "}
-            <span className="font-bold">
-              {request?.data.client.client_name ?? "My Apps"}
-            </span>
-          </h5>
-        </div>
-        <SSOButtons />
-        <div className="flex items-stretch justify-center space-x-2 text-sm text-gray-400">
-          <a href="https://www.bloxvalschools.com/page/privacy-policy">
-            Privacy Policy
-          </a>
-          <div className="w-[1px] border-[0.5px]" />
-          <a href="https://www.bloxvalschools.com/page/tos">Terms of Use</a>
-        </div>
-      </main>
+      <SSOButtons />
     </LoginTemplate>
   );
 }
