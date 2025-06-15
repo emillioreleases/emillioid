@@ -16,7 +16,6 @@ export default function SigningIn({
   prompt,
   promptBypass,
   clientName,
-  sessions,
 }: {
   login_challenge: string;
   prompt: string | null;
@@ -33,6 +32,8 @@ export default function SigningIn({
   const [processed, setProcessed] = useState(false);
   const [buttonsEnabled, setButtonsEnabled] = useState(true);
   const [currentPrompt, setCurrentPrompt] = useState<string | null>(prompt);
+  const [loading, setLoading] = useState(false); 
+  const [sessionsData, setSessionsData] = useState<{ session: Session, user: User }[] | null>(null);
   const router = useRouter();
   const login = api.login.loginUser.useMutation();
   const requestBypass = api.login.requestBypass.useMutation();
@@ -58,6 +59,16 @@ export default function SigningIn({
         });
     }
   }, [currentPrompt, login, loginChallenge, processed, router]);
+
+  useEffect(() => {
+    if (!loading && !sessionsData) {
+      setLoading(true);
+      void authClient.multiSession.listDeviceSessions().then((res) => {
+        setSessionsData(res.data);
+        setLoading(false);
+      });
+    }
+  }, [loading, sessionsData]);
 
   console.log(currentPrompt);
 
@@ -105,8 +116,9 @@ export default function SigningIn({
               <></>
             )}
             <div className="flex w-full flex-col items-center justify-center space-y-2">
-              {sessions.map((s) => (
-                <Button
+              {(sessionsData && !loading) ? (
+                sessionsData.map((s) => (
+                  <Button
                   variant={"outline"}
                   key={s.session.id}
                   className="flex w-full items-center justify-start !space-x-1 p-3 text-left h-fit"
@@ -131,7 +143,10 @@ export default function SigningIn({
                     </span>
                   </div>
                 </Button>
-              ))}
+                )
+              )) : (
+                <div className="flex w-full flex-col items-center justify-center space-y-2">Loading</div>
+              )}
               <Button
                 onClick={() => {
                   setButtonsEnabled(false);
