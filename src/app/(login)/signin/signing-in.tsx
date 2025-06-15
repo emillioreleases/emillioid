@@ -120,7 +120,6 @@ export default function SigningIn({
                   }}
                   disabled={!buttonsEnabled}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <Avatar className="w-8 h-8"> 
                     <AvatarImage src={s.user.image!} alt={s.user.name} />
                     <AvatarFallback><UserIcon /></AvatarFallback>

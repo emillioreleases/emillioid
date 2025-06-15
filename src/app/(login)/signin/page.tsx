@@ -71,7 +71,15 @@ export default async function SignIn({
             );
         }
       } else {
-        return <SigningIn login_challenge={login_challenge} prompt={prompt} promptBypass={cookieStore.has("bcps.auth.prompt-bypass")} clientName={request?.data.client.client_name ?? "My Apps"} sessions={ms} />
+        return (
+          <SigningIn
+            login_challenge={login_challenge}
+            prompt={prompt}
+            promptBypass={cookieStore.has("bcps.auth.prompt-bypass")}
+            clientName={request?.data.client.client_name ?? "My Apps"}
+            sessions={[session, ...ms.filter((s) => s.session.id !== session.session.id).map((s) => s)]}
+          />
+        );
       }
     }
   }
@@ -93,15 +101,23 @@ export default async function SignIn({
           );
       }
     } else {
-      
     }
     redirect("/portal");
   }
   return (
-    <LoginTemplate title={"Welcome!"} description={<>Please login to continue to{" "}
-    <span className="font-bold">
-      {request?.data.client.client_name ?? "My Apps"}
-    </span></>} partnerLogo={request?.data.client.logo_uri} havePtLinks>
+    <LoginTemplate
+      title={"Welcome!"}
+      description={
+        <>
+          Please login to continue to{" "}
+          <span className="font-bold">
+            {request?.data.client.client_name ?? "My Apps"}
+          </span>
+        </>
+      }
+      partnerLogo={request?.data.client.logo_uri}
+      havePtLinks
+    >
       <header className="justify-left mx-[-1rem] mt-[-1.5rem] mb-[-1.5rem] flex min-w-full items-stretch space-x-2 p-4">
         <Image src={"/logo.png"} alt={"Logo"} width={100} height={75} />
         {request?.data.client.logo_uri && (
