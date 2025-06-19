@@ -1,15 +1,30 @@
 import { db } from "~/server/db";
-import { ory } from "~/utils/ory";
 
-export default async function fetchUser(challenge: string): Promise<string | { method: string; email: string; name: string; preferred_username: string; picture: string; groups: string[]; }> {
-  const consent = await ory.getOAuth2ConsentRequest({
-    consentChallenge: challenge,
-  }).then((res) => res.data);
-  if (!consent) {
-    return "NO_CONSENT";
-  }
+export default async function fetchUser(
+  userId: string,
+  login_method: string,
+  config: { discord_direct?: boolean; no_staff?: boolean },
+): Promise<
+  | string
+  | {
+      subject: string;
+      method: string;
+      email: string;
+      name: string;
+      preferred_username: string;
+      picture: string;
+      groups: string[];
+    }
+> {
+  const consent = {
+    config: config,
+  };
+  const context = {
+    login_method: login_method,
+  };
   let user: {
     method: string;
+    subject: string;
     email: string;
     name: string;
     preferred_username: string;
@@ -17,14 +32,14 @@ export default async function fetchUser(challenge: string): Promise<string | { m
     groups: string[];
   } | null = null;
 
-  const context = consent.context as { login_method: string };
-
-  switch (consent.subject!.split("|")[0]!) {
+  switch (context.login_method) {
     case "roblox":
       const [userFetch, avatarFetch] = await Promise.all([
-        fetch(`https://users.roblox.com/v1/users/${consent.subject!.split("|")[1]!}`),
         fetch(
-          `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${consent.subject!.split("|")[1]!}&format=Png&size=720x720`,
+          `https://users.roblox.com/v1/users/${userId}`,
+        ),
+        fetch(
+          `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&format=Png&size=720x720`,
         ),
       ]);
       const [userData1, avatar] = (await Promise.all([
@@ -38,26 +53,23 @@ export default async function fetchUser(challenge: string): Promise<string | { m
           }[];
         },
       ];
+      if (!userData1) return "NO_USER_IN_DB";
+      if (!avatar) return "NO_USER_IN_DB";
       user = {
+        subject: `roblox|${userId}`,
         method: context.login_method,
         email: `${userData1.id}@students.bloxvalschools.com`,
         name: `${userData1.displayName} (@${userData1.name})`,
         preferred_username: userData1.name,
         picture: avatar.data[0]!.imageUrl,
-        groups: []
+        groups: [],
       };
       break;
     case "discord":
-      if (
-        (
-          consent.client?.metadata as
-            | { discord_direct: boolean | undefined }
-            | undefined
-        )?.discord_direct
-      ) {
+      if (consent.config?.discord_direct) {
         const accountData = await db.query.account.findFirst({
           where(fields, operators) {
-            return operators.eq(fields.accountId, consent.subject!);
+            return operators.eq(fields.accountId, userId);
           },
         });
 
@@ -76,18 +88,32 @@ export default async function fetchUser(challenge: string): Promise<string | { m
         }
 
         user = {
+          subject: `discord|${userId}`,
           method: context.login_method,
           email: userData.email,
           name: userData.name,
           preferred_username: userData.email,
           picture: userData.image ?? "",
-          groups: []
+          groups: [],
         };
       } else {
+        const account = await db.query.account.findFirst({
+          where(fields, operators) {
+            return operators.eq(fields.accountId, userId);
+          },
+        });
+        if (!account) return "NO_USER_IN_DB";
+        const userDb = await db.query.user.findFirst({
+          where(fields, operators) {
+            return operators.eq(fields.id, account.userId);
+          },
+        });
         const [userFetch, avatarFetch] = await Promise.all([
-          fetch(`https://users.roblox.com/v1/users/${consent.subject!.split("|")[1]!}`),
           fetch(
-            `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${consent.subject!.split("|")[1]!}&format=Png&size=720x720`,
+            `https://users.roblox.com/v1/users/${userDb?.connectedRobloxAccount}`,
+          ),
+          fetch(
+            `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userDb?.connectedRobloxAccount}&format=Png&size=720x720`,
           ),
         ]);
         const [userData, avatar] = (await Promise.all([
@@ -102,28 +128,24 @@ export default async function fetchUser(challenge: string): Promise<string | { m
           },
         ];
         user = {
+          subject: `roblox|${userDb?.connectedRobloxAccount}`,
           method: context.login_method,
           email: `${userData.id}@students.bloxvalschools.com`,
           name: `${userData.displayName} (@${userData.name})`,
           preferred_username: userData.name,
           picture: avatar.data[0]!.imageUrl,
-          groups: []
+          groups: [],
         };
       }
       break;
-    case "myteam":
-      if (
-        (
-          consent.client?.metadata as
-            | { no_staff: boolean | undefined }
-            | undefined
-        )?.no_staff
-      ) {
+    case "microsoft":
+      console.log("myteam");
+      if (consent.config?.no_staff) {
         return "NO_STAFF";
       }
       const userData = await db.query.user.findFirst({
         where(fields, operators) {
-          return operators.eq(fields.id, consent.subject!.split("|")[1]!);
+          return operators.eq(fields.id, userId);
         },
       });
       if (!userData) {
@@ -131,6 +153,7 @@ export default async function fetchUser(challenge: string): Promise<string | { m
       }
 
       user = {
+        subject: `myteam|${userId}`,
         method: context.login_method,
         email: userData.email,
         name: userData.name,
@@ -142,8 +165,8 @@ export default async function fetchUser(challenge: string): Promise<string | { m
       break;
     default:
       if (!user) return "NO_USER_OBJECT";
-    }
-      
-    if (!user) return "NO_USER_OBJECT";
-    return user;
+  }
+
+  if (!user) return "NO_USER_OBJECT";
+  return user;
 }

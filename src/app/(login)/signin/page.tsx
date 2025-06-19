@@ -1,20 +1,18 @@
 import Image from "next/image";
 import { auth } from "~/server/auth";
-import { cookies, headers as headersStore } from "next/headers";
+import { headers as headersStore } from "next/headers";
 import SSOButtons from "./sso-buttons";
 import RobloxLink from "./roblox-link";
 import { redirect } from "next/navigation";
 import { api } from "~/trpc/server";
-import { getOryLoginRequest } from "~/utils/get-login-request";
 import SigningIn from "./signing-in";
 import LoginTemplate from "./login-template";
 
 export default async function SignIn({
   searchParams,
 }: {
-  searchParams: Promise<{ login_challenge: string | undefined }>;
+  searchParams: Promise<{ flow: string | undefined }>;
 }) {
-  const cookieStore = await cookies();
   const headers = await headersStore();
   const [session, ms] = await Promise.all([
     auth.api.getSession({
@@ -27,32 +25,28 @@ export default async function SignIn({
 
   const sp = await searchParams;
 
-  const canLogin = await api.login.canLogin(sp.login_challenge);
+  const canLogin = await api.login.canLogin(sp.flow);
 
-  let request;
-  if (sp.login_challenge) {
-    const prompt = await api.login.getPrompt(sp.login_challenge);
-    const login_challenge = sp.login_challenge;
-    try {
-      request = await getOryLoginRequest(login_challenge ?? "");
-    } catch (e: unknown) {
-      const error = e as {
-        response: { data: { error: string; error_description: string } };
-      };
+  let client;
+  let prompt;
+  if (sp.flow) {
+    [client, prompt] = await Promise.all([
+      api.oauth2.getClientDetails(sp.flow),
+      api.oauth2.getStage(sp.flow),
+    ]);
+
+    if (!client || !prompt) {
       return (
         <>
           <header className="mx-[-1rem] mt-[-1.5rem] mb-[-0.75rem] flex min-w-full items-stretch justify-center space-x-2 p-4">
             <Image src={"/logo.png"} alt={"Logo"} width={100} height={75} />
           </header>
-          <div>
-            Something went wrong!{" "}
-            {error.response?.data
-              ? error.response.data.error_description
-              : "Unknown Error"}
-          </div>
+          <div>Something went wrong! Please contact the IT department.</div>
         </>
       );
     }
+
+    const login_challenge = sp.flow;
     if (session?.user) {
       if (!canLogin.verdict) {
         switch (canLogin.message) {
@@ -64,19 +58,14 @@ export default async function SignIn({
               </div>
             );
           case "NO_ROBLOX_ACCOUNT":
-            return (
-              <RobloxLink
-                clientName={request?.data.client.client_name ?? "My Apps"}
-              />
-            );
+            return <RobloxLink clientName={client.name ?? "My Apps"} />;
         }
       } else {
         return (
           <SigningIn
             login_challenge={login_challenge}
             prompt={prompt}
-            promptBypass={cookieStore.has("bcps.auth.prompt-bypass")}
-            clientName={request?.data.client.client_name ?? "My Apps"}
+            clientName={client.name ?? "My Apps"}
             sessions={[
               session,
               ...ms
@@ -99,15 +88,30 @@ export default async function SignIn({
             </div>
           );
         case "NO_ROBLOX_ACCOUNT":
-          return (
-            <RobloxLink
-              clientName={request?.data.client.client_name ?? "My Apps"}
-            />
-          );
+          return <RobloxLink clientName={client?.name ?? "My Apps"} />;
       }
     } else {
     }
     redirect("/portal");
+  }
+  if (prompt) {
+    switch (prompt) {
+      case "login":
+        return (
+          <LoginTemplate
+            title={"Welcome!"}
+            description={
+              <>
+                Please login to continue to{" "}
+                <span className="font-bold">{client?.name ?? "My Apps"}</span>
+              </>
+            }
+            havePtLinks
+          >
+            <SSOButtons />
+          </LoginTemplate>
+        );
+    }
   }
   return (
     <LoginTemplate
@@ -115,15 +119,12 @@ export default async function SignIn({
       description={
         <>
           Please login to continue to{" "}
-          <span className="font-bold">
-            {request?.data.client.client_name ?? "My Apps"}
-          </span>
+          <span className="font-bold">{client?.name ?? "My Apps"}</span>
         </>
       }
-      partnerLogo={request?.data.client.logo_uri}
       havePtLinks
     >
       <SSOButtons />
     </LoginTemplate>
   );
-}
+};

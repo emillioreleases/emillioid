@@ -10,33 +10,37 @@ import { Button } from "~/components/ui/button";
 import { authClient } from "~/utils/auth-client";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
+import RobloxLink from "./roblox-link";
 
 export default function SigningIn({
   login_challenge,
   prompt,
-  promptBypass,
   clientName,
 }: {
   login_challenge: string;
   prompt: string | null;
-  promptBypass: boolean;
   clientName: string;
   sessions: {
     session: Session;
     user: User;
   }[];
 }) {
-  const [canBypassPrompt] = useState<boolean>(promptBypass);
   const [error, setError] = useState<string | null>(null);
   const [loginChallenge] = useState(login_challenge);
   const [processed, setProcessed] = useState(false);
   const [buttonsEnabled, setButtonsEnabled] = useState(true);
   const [currentPrompt, setCurrentPrompt] = useState<string | null>(prompt);
-  const [loading, setLoading] = useState(false); 
-  const [sessionsData, setSessionsData] = useState<{ session: Session, user: User }[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [sessionsData, setSessionsData] = useState<
+    { session: Session; user: User }[] | null
+  >(null);
   const router = useRouter();
   const login = api.login.loginUser.useMutation();
   const requestBypass = api.login.requestBypass.useMutation();
+  const loginCapable = api.login.canLogin.useQuery(loginChallenge, {
+    enabled: false,
+  });
+  const [canLoginMessage, setCanLoginMessage] = useState("");
 
   useEffect(() => {
     if (currentPrompt === "finished" && !processed) {
@@ -72,9 +76,9 @@ export default function SigningIn({
 
   console.log(currentPrompt);
 
-  if (currentPrompt && !canBypassPrompt) {
+  if (currentPrompt) {
     switch (currentPrompt) {
-      case "loginUser":
+      case "login":
         return (
           <LoginTemplate
             title={"Welcome!"}
@@ -95,7 +99,7 @@ export default function SigningIn({
             <SSOButtons />
           </LoginTemplate>
         );
-      case "login":
+      case "select_account":
         return (
           <LoginTemplate
             title={"Welcome!"}
@@ -116,36 +120,39 @@ export default function SigningIn({
               <></>
             )}
             <div className="flex w-full flex-col items-center justify-center space-y-2">
-              {(sessionsData && !loading) ? (
+              {sessionsData && !loading ? (
                 sessionsData.map((s) => (
                   <Button
-                  variant={"outline"}
-                  key={s.session.id}
-                  className="flex w-full items-center justify-start !space-x-1 p-3 text-left h-fit"
-                  onClick={async (e) => {
-                    e.preventDefault();
-                    setButtonsEnabled(false);
-                    await authClient.multiSession.setActive({
-                      sessionToken: s.session.token,
-                    });
-                    setCurrentPrompt("finished");
-                  }}
-                  disabled={!buttonsEnabled}
-                >
-                  <Avatar className="w-8 h-8"> 
-                    <AvatarImage src={s.user.image!} alt={s.user.name} />
-                    <AvatarFallback><UserIcon /></AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col items-start justify-start">
-                    <span className="font-bold">{s.user.name}</span>
-                    <span className="text-sm text-gray-400">
-                      {s.user.email}
-                    </span>
-                  </div>
-                </Button>
-                )
-              )) : (
-                <div className="flex w-full flex-col items-center justify-center space-y-2">Loading</div>
+                    variant={"outline"}
+                    key={s.session.id}
+                    className="flex h-fit w-full items-center justify-start !space-x-1 p-3 text-left"
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      setButtonsEnabled(false);
+                      await authClient.multiSession.setActive({
+                        sessionToken: s.session.token,
+                      });
+                    }}
+                    disabled={!buttonsEnabled}
+                  >
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={s.user.image!} alt={s.user.name} />
+                      <AvatarFallback>
+                        <UserIcon />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col items-start justify-start">
+                      <span className="font-bold">{s.user.name}</span>
+                      <span className="text-sm text-gray-400">
+                        {s.user.email}
+                      </span>
+                    </div>
+                  </Button>
+                ))
+              ) : (
+                <div className="flex w-full flex-col items-center justify-center space-y-2">
+                  Loading
+                </div>
               )}
               <Button
                 onClick={() => {
@@ -163,15 +170,41 @@ export default function SigningIn({
             </div>
           </LoginTemplate>
         );
+      case "loginError":
+        switch (canLoginMessage) {
+          case "NO_STAFF":
+            return (
+              <div>
+                You cannot use your employee credentials to login to this site.
+                Please log out and try again.
+              </div>
+            );
+          case "NO_ROBLOX_ACCOUNT":
+            return <RobloxLink clientName={clientName ?? "My Apps"} />;
+        }
       default:
         if (currentPrompt !== "finished") {
-          setCurrentPrompt("finished");
+          void loginCapable.refetch().then((res) => {
+            if (res.data?.verdict) {
+              setCurrentPrompt("finished");
+            } else {
+              setCurrentPrompt("loginError");
+              setCanLoginMessage(res.data?.message ?? "Unknown error");
+            }
+          });
         }
         break;
     }
   } else {
     if (currentPrompt !== "finished") {
-      setCurrentPrompt("finished");
+      void loginCapable.refetch().then((res) => {
+        if (res.data?.verdict) {
+          setCurrentPrompt("finished");
+        } else {
+          setCurrentPrompt("loginError");
+          setCanLoginMessage(res.data?.message ?? "Unknown error");
+        }
+      });
     }
   }
 

@@ -70,7 +70,10 @@ export const session = createTable("session", (d) => ({
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
   orySessions: d.text("ory_sessions").default(JSON.stringify([])).notNull(),
-  oryClientSessions: d.text("ory_client_sessions").default(JSON.stringify([])).notNull(),
+  oryClientSessions: d
+    .text("ory_client_sessions")
+    .default(JSON.stringify([]))
+    .notNull(),
 }));
 
 export const account = createTable("account", (d) => ({
@@ -107,4 +110,114 @@ export const verification = createTable("verification", (d) => ({
   updatedAt: d
     .integer("updated_at", { mode: "timestamp" })
     .$defaultFn(() => /* @__PURE__ */ new Date()),
+}));
+
+export const oauth2Client = createTable("oauth2_client", (d) => ({
+  id: d.text("id").primaryKey(),
+  clientSecret: d.text("client_secret").notNull(),
+  name: d.text("name").notNull(),
+  consentNeeded: d
+    .integer("consent_needed", { mode: "boolean" })
+    .notNull()
+    .default(true),
+  postLogoutRedirectUris: d.text("post_logout_redirect_uris").notNull(),
+  redirectUris: d.text("redirect_uris").notNull(),
+  frontchannelLogoutUri: d.text("frontchannel_logout_uri").notNull(),
+  backchannelLogoutUri: d.text("backchannel_logout_uri").notNull(),
+  grants: d.text("grants").notNull(),
+  homeUrl: d.text("home_url").notNull(),
+  with_discord_direct: d
+    .integer("with_discord_direct", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  with_no_staff: d
+    .integer("with_no_staff", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  createdAt: d.integer("created_at", { mode: "timestamp" }).notNull(),
+  updatedAt: d.integer("updated_at", { mode: "timestamp" }).notNull(),
+}));
+
+export const oauth2Consent = createTable("oauth2_consent", (d) => ({
+  id: d.text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  challenge: d.text("challenge").notNull(),
+  login_session_id: d.text("login_session_id").notNull(),
+  client_id: d
+    .text("client_id")
+    .notNull()
+    .references(() => oauth2Client.id, { onDelete: "cascade" }),
+  user_id: d.text("user_id").notNull(),
+  scopes: d.text("scopes").notNull(),
+  created_at: d.integer("created_at", { mode: "timestamp" }).notNull(),
+  updated_at: d.integer("updated_at", { mode: "timestamp" }).notNull(),
+}));
+
+export const oauth2LoginAttempt = createTable("oauth2_login_attempt", (d) => ({
+  id: d.text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  client_id: d
+    .text("client_id")
+    .notNull()
+    .references(() => oauth2Client.id, { onDelete: "cascade" }),
+  login_hint: d.text("login_hint"),
+  redirect_uri: d.text("redirect_uri").notNull(),
+  response_type: d.text("response_type").notNull(),
+  scope: d.text("scope").notNull(),
+  state: d.text("state"),
+  nonce: d.text("nonce"),
+  user_id: d.text("user_id").references(() => user.id, { onDelete: "cascade" }),
+  prompt: d.text("prompt"),
+  created_at: d.integer("created_at", { mode: "timestamp" }).notNull(),
+  updated_at: d.integer("updated_at", { mode: "timestamp" }).notNull(),
+}));
+
+export const oauth2LoginSession = createTable("oauth2_login_session", (d) => ({
+  id: d.text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  id_token: d.text("id_token"),
+  access_token: d.text("access_token"),
+  refresh_token: d.text("refresh_token"),
+  authorization_code: d.text("authorization_code"),
+  at_expires_at: d.integer("at_expires_at", { mode: "timestamp" }),
+  rt_expires_at: d.integer("rt_expires_at", { mode: "timestamp" }),
+  ac_expires_at: d.integer("ac_expires_at", { mode: "timestamp" }),
+  code_verifier: d.text("code_verifier"),
+  redirect_uri: d.text("redirect_uri"),
+  session_id: d
+    .text("session_id")
+    .notNull()
+    .references(() => session.id, { onDelete: "cascade" }),
+  user_id: d
+    .text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  client_id: d
+    .text("client_id")
+    .notNull()
+    .references(() => oauth2Client.id, { onDelete: "cascade" }),
+  scope: d.text("scope").notNull(),
+  token_type: d.text("token_type").notNull(),
+  created_at: d.integer("created_at", { mode: "timestamp" }).notNull(),
+  updated_at: d.integer("updated_at", { mode: "timestamp" }).notNull(),
+}));
+
+export const oauth2Keys = createTable("oauth2_keys", (d) => ({
+  id: d.text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  alg: d.text().notNull(),
+  public_key: d
+    .text({ mode: "json" })
+    .$type<{ e: string; kty: string; n: string }>()
+    .notNull(),
+  private_key: d
+    .text({ mode: "json" })
+    .$type<{
+      d: string;
+      dp: string;
+      dq: string;
+      e: string;
+      kty: string;
+      n: string;
+      p: string;
+      q: string;
+      qi: string;
+    }>()
+    .notNull(),
 }));

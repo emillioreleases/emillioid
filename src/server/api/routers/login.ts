@@ -1,6 +1,5 @@
-import type { OAuth2LoginRequest, RFC6749ErrorJson } from "@ory/client";
-import type { AxiosError, AxiosResponse } from "axios";
 import { eq } from "drizzle-orm";
+import ms from "ms";
 import { z } from "zod";
 
 import {
@@ -9,11 +8,12 @@ import {
   publicProcedure,
   type Context,
 } from "~/server/api/trpc";
-import { user } from "~/server/db/schema";
-import { getOryLoginRequest } from "~/utils/get-login-request";
-import { ory } from "~/utils/ory";
+import {
+  oauth2LoginAttempt,
+  oauth2LoginSession,
+} from "~/server/db/schema";
 
-const canLogin = async (ctx: Context, input?: string) => {
+export const canLogin = async (ctx: Context, input?: string) => {
   if (!ctx.session?.user)
     return {
       verdict: false,
@@ -23,34 +23,33 @@ const canLogin = async (ctx: Context, input?: string) => {
   let discord_direct = false;
 
   if (input) {
-    let request;
-    try {
-      request = await getOryLoginRequest(input ?? "");
-    } catch (e) {
-      request = (e as AxiosError<RFC6749ErrorJson>).response;
-    }
+    const request = await ctx.db.query.oauth2LoginAttempt.findFirst({
+      where(fields, operators) {
+        return operators.eq(fields.id, input);
+      },
+    });
 
-    if (request?.status !== 200) {
+    if (!request) {
       return {
         verdict: false,
         message: "INVALID_LOGIN_CHALLENGE",
       };
     }
 
-    request = request as AxiosResponse<OAuth2LoginRequest>;
-    discord_direct =
-      (
-        request.data.client.metadata as
-          | { discord_direct: boolean | undefined }
-          | undefined
-      )?.discord_direct ?? false;
+    const client = await ctx.db.query.oauth2Client.findFirst({
+      columns: {
+        with_discord_direct: true,
+        with_no_staff: true,
+      },
+      where(fields, operators) {
+        return operators.eq(fields.id, request.client_id);
+      },
+    });
+
+    discord_direct = client?.with_discord_direct ?? false;
 
     if (ctx.session.user.email.endsWith("@bloxvalschools.com")) {
-      if (
-        request.data.client.metadata &&
-        !(request.data.client.metadata as { no_staff: boolean | undefined })
-          .no_staff
-      ) {
+      if (!client?.with_no_staff) {
         return {
           verdict: true,
           message: "",
@@ -88,77 +87,52 @@ export const loginRouter = createTRPCRouter({
       return await canLogin(ctx, input);
     }),
 
-  getPrompt: publicProcedure.input(z.string()).query(async ({ input }) => {
-    try {
-      const loginRequest = await ory.getOAuth2LoginRequest({
-        loginChallenge: input,
-      })
-      return new URL(
-        (
-          loginRequest
-        ).data.request_url,
-        "https://accounts.bloxvalschools.com",
-      ).searchParams.get("prompt");
-    } catch  {
-      return null;
-    }
-  }),
-
   loginUser: protectedProcedure
     .input(z.string())
     .mutation(async ({ ctx, input }) => {
       const allowed = await canLogin(ctx, input);
-      let method;
       if (!allowed.verdict) {
         throw new Error("Invalid login");
       }
 
-      if (ctx.session.user.email.endsWith("@students.bloxvalschools.com")) {
-        if (!ctx.session.user.connectedRobloxAccount) {
-          await ctx.db
-            .update(user)
-            .set({
-              connectedRobloxAccount: ctx.session.user.email.split("@")[0],
-              verifiedWanted: true,
-            })
-            .where(eq(user.id, ctx.session.user.id));
-        }
-        method = "roblox";
-      } else {
-        method = "discord";
-        if (ctx.session.user.email.endsWith("@bloxvalschools.com")) {
-          method = "myteam";
-        }
-      }
-
-      const account = await ctx.db.query.account.findFirst({
+      const request = await ctx.db.query.oauth2LoginAttempt.findFirst({
         where(fields, operators) {
-          return operators.eq(fields.userId, ctx.session.user.id);
+          return operators.eq(fields.id, input);
         },
       });
 
-      const subject =
-        (method === "myteam"
-          ? "myteam|" + ctx.session.user.id
-          : (allowed.message === "with_discord_direct"
-            ? method + "|" + account!.accountId
-            : "roblox|" + ctx.session.user.connectedRobloxAccount!));
+      if (!request) {
+        throw new Error("Invalid login");
+      }
 
-      return await ory
-        .acceptOAuth2LoginRequest({
-          loginChallenge: input ?? "",
-          acceptOAuth2LoginRequest: {
-            subject,
-            context: {
-              login_method: method,
-            },
-            remember: true,
-          },
-        })
-        .then((res) => res.data.redirect_to);
+      const ac = crypto.randomUUID();
+
+      await ctx.db.batch([
+        ctx.db.insert(oauth2LoginSession).values({
+          id_token: null,
+          access_token: null,
+          refresh_token: null,
+          at_expires_at: null,
+          rt_expires_at: null,
+          authorization_code: ac,
+          ac_expires_at: new Date(new Date().getTime() + ms("60 seconds")),
+          code_verifier: null,
+          session_id: ctx.session.session.id,
+          user_id: ctx.session.user.id,
+          client_id: request.client_id,
+          scope: request.scope,
+          redirect_uri: request.redirect_uri,
+          token_type: "Bearer",
+          created_at: new Date(),
+          updated_at: new Date(),
+        }),
+        ctx.db
+          .delete(oauth2LoginAttempt)
+          .where(eq(oauth2LoginAttempt.id, request.id)),
+      ]);
+      return request.redirect_uri+((request.redirect_uri.endsWith("?") ? "&" : "?")+"code="+ac+"&state="+request.state);
     }),
-  requestBypass: protectedProcedure
-    .mutation(async ({ ctx }) => {
-      ctx.headers.set("Set-Cookie", "bcps.auth.prompt-bypass=true; HttpOnly");
-    }),
+  requestBypass: protectedProcedure.mutation(async ({ ctx }) => {
+    ctx.headers.set("Set-Cookie", "bcps.auth.prompt-bypass=true; HttpOnly");
+  }),
 });
