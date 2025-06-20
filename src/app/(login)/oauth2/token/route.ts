@@ -2,11 +2,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import { db } from "~/server/db";
 import fetchUser from "../../consent/fetch-user";
 import { z } from "zod";
-import { base64url, importJWK, SignJWT } from "jose";
+import { base64url, compactDecrypt, CompactEncrypt, importJWK, jwtVerify, SignJWT } from "jose";
 import { env } from "~/env";
 import ms from "ms";
 import { oauth2LoginSession } from "~/server/db/schema";
 import { eq } from "drizzle-orm";
+import { jwtZ } from "~/utils/jwtZ";
 
 export async function POST(req: NextRequest) {
   const fdata = await req.formData();
@@ -24,14 +25,14 @@ export async function POST(req: NextRequest) {
   if (grantType.error) {
     errors.push("grantType is invalid");
   }
-  if (grantType.data === "authorization_code" && !code.success) {
+  if (grantType.data === "authorization_code" && (!code.success || !redirectUri.success)) {
     errors.push("Missing code");
   }
-  if (grantType.data === "refresh_token" && (!refresh_token.success || !scope.success)) {
+  if (
+    grantType.data === "refresh_token" &&
+    (!refresh_token.success || !scope.success)
+  ) {
     errors.push("Missing refresh token or scope");
-  }
-  if (redirectUri.error) {
-    errors.push("redirectURI is invalid");
   }
   if (clientId.error) {
     errors.push("clientID is invalid");
@@ -41,7 +42,6 @@ export async function POST(req: NextRequest) {
   }
 
   if (errors.length > 0) {
-    console.log(errors);
     return NextResponse.json(
       {
         error: "invalid_request",
@@ -56,44 +56,140 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let oauth2Session;
-  if (grantType.data === "authorization_code") {
-    oauth2Session = await db.query.oauth2LoginSession.findFirst({
-      columns: {
-        id: true,
-        session_id: true,
-        client_id: true,
-        user_id: true,
+  const stuff = base64url.decode(grantType.data === "authorization_code" ? code.data! : refresh_token.data!);
+  let jwt;
+  try {
+    const secret = new TextEncoder().encode(env.BETTER_AUTH_SECRET);
+    const decryptedJWT = await compactDecrypt(stuff, secret);
+    jwt = await jwtVerify(
+      new TextDecoder().decode(decryptedJWT.plaintext),
+      secret,
+      {
+        audience: clientId.data,
       },
-      where(fields, operators) {
-        return operators.and(
-          operators.eq(fields.authorization_code, code.data!),
-          operators.isNotNull(fields.authorization_code),
-          operators.isNotNull(fields.ac_expires_at),
-          operators.gt(fields.ac_expires_at, new Date()),
-          operators.eq(fields.redirect_uri, redirectUri.data!),
-        );
+    );
+  } catch  {
+    return NextResponse.json(
+      {
+        error: "invalid_grant",
       },
-    });
-  } else {
-    oauth2Session = await db.query.oauth2LoginSession.findFirst({
-      columns: {
-        id: true,
-        session_id: true,
-        client_id: true,
-        user_id: true,
+      {
+        status: 400,
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store",
+        },
       },
-      where(fields, operators) {
-        return operators.and(
-          operators.eq(fields.refresh_token, refresh_token.data!),
-          operators.isNotNull(fields.refresh_token),
-          operators.isNotNull(fields.rt_expires_at),
-          operators.gt(fields.rt_expires_at, new Date()),
-          operators.eq(fields.scope, scope.data!),
-        );
-      },
-    });
+    );
   }
+
+  const jwtData = jwtZ.safeParse(jwt.payload);
+
+  if (!jwtData.success) {
+    return NextResponse.json(
+      {
+        error: "invalid_grant",
+      },
+      {
+        status: 400,
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store",
+        },
+      },
+    );
+  }
+
+  if (
+    grantType.data == "authorization_code" &&
+    jwtData.data.tt !== "authorization_code"
+  ) {
+    return NextResponse.json(
+      {
+        error: "invalid_grant",
+      },
+      {
+        status: 400,
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store",
+        },
+      },
+    );
+  }
+
+  if (
+    grantType.data == "refresh_token" &&
+    jwtData.data.tt !== "refresh_token"
+  ) {
+    return NextResponse.json(
+      {
+        error: "invalid_grant",
+      },
+      {
+        status: 400,
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store",
+        },
+      },
+    );
+  }
+
+  if (
+    jwtData.data.ruri !== redirectUri.data &&
+    grantType.data === "authorization_code"
+  ) {
+    return NextResponse.json(
+      {
+        error: "invalid_grant",
+      },
+      {
+        status: 400,
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store",
+        },
+      },
+    );
+  }
+
+/*   if (jwtData.data.scope !== scope.data && grantType.data === "refresh_token") {
+    return NextResponse.json(
+      {
+        error: "invalid_grant",
+      },
+      {
+        status: 400,
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store",
+        },
+      },
+    );
+  } */
+
+  const oauth2Session = await db.query.oauth2LoginSession.findFirst({
+    columns: {
+      id: true,
+      session_id: true,
+      client_id: true,
+      user_id: true,
+    },
+    where(fields, operators) {
+      return jwtData.data.tt === "authorization_code"
+        ? operators.and(
+            operators.eq(fields.authorization_code, jwtData.data.tid),
+            operators.isNotNull(fields.authorization_code),
+            operators.eq(fields.client_id, jwtData.data.aud),
+          )
+        : operators.and(
+            operators.eq(fields.refresh_token, jwtData.data.tid),
+            operators.isNotNull(fields.refresh_token),
+            operators.eq(fields.client_id, jwtData.data.aud),
+          );
+    },
+  });
 
   if (!oauth2Session) {
     return NextResponse.json(
@@ -122,6 +218,7 @@ export async function POST(req: NextRequest) {
     db.query.oauth2Client.findFirst({
       columns: {
         id: true,
+        clientSecret: true,
         with_discord_direct: true,
         with_no_staff: true,
       },
@@ -146,12 +243,26 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  if (clientConfig.clientSecret !== clientSecret.data) {
+    return NextResponse.json(
+      {
+        error: "invalid_grant",
+      },
+      {
+        status: 400,
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store",
+        },
+      },
+    );
+  }
+
   const userData = await fetchUser(oauth2Session.user_id, account.providerId, {
     discord_direct: clientConfig.with_discord_direct,
     no_staff: clientConfig.with_no_staff,
   });
   if (typeof userData === "string") {
-    console.log(userData);
     return NextResponse.json(
       {
         error: "invalid_grant",
@@ -196,33 +307,49 @@ export async function POST(req: NextRequest) {
       ),
     );
 
-  const accessToken = await new SignJWT({
+  const attid = crypto.randomUUID();
+  const rttid = crypto.randomUUID();
+  const secret = new TextEncoder().encode(env.BETTER_AUTH_SECRET);
+
+  const accessTokenSigned = await new SignJWT({
     sub: userData.subject,
-    token_type: "access_token",
+    tt: "access_token",
+    tid: attid,
     sid: oauth2Session.session_id,
+    sid2: oauth2Session.id,
   })
+    .setIssuedAt()
     .setAudience(clientConfig.id)
     .setExpirationTime("5 minutes")
-    .setProtectedHeader({ alg: "HS256", typ: "JWT" })
-    .sign(new TextEncoder().encode(env.BETTER_AUTH_SECRET));
+    .setProtectedHeader({ alg: "HS512", typ: "JWT" })
+    .sign(secret);
 
-  const refreshToken = await new SignJWT({
+  const refreshTokenSigned = await new SignJWT({
     sub: userData.subject,
-    token_type: "refresh_token",
+    tt: "refresh_token",
+    tid: rttid,
     sid: oauth2Session.session_id,
+    sid2: oauth2Session.id,
   })
+    .setIssuedAt()
     .setAudience(clientConfig.id)
     .setExpirationTime("30d")
-    .setProtectedHeader({ alg: "HS256", typ: "JWT" })
-    .sign(new TextEncoder().encode(env.BETTER_AUTH_SECRET));
+    .setProtectedHeader({ alg: "HS512", typ: "JWT" })
+    .sign(secret);
+
+  const accessToken = await new CompactEncrypt(new TextEncoder().encode(accessTokenSigned))
+    .setProtectedHeader({ alg: "dir", enc: "A256CBC-HS512" })
+    .encrypt(secret);
+  
+  const refreshToken = await new CompactEncrypt(new TextEncoder().encode(refreshTokenSigned))
+    .setProtectedHeader({ alg: "dir", enc: "A256CBC-HS512" })
+    .encrypt(secret);
 
   await db
     .update(oauth2LoginSession)
     .set({
-      access_token: base64url.encode(new TextEncoder().encode(accessToken)),
-      refresh_token: base64url.encode(new TextEncoder().encode(refreshToken)),
-      at_expires_at: new Date(new Date().getTime() + ms("5 minutes")),
-      rt_expires_at: new Date(new Date().getTime() + ms("30d")),
+      access_token: attid,
+      refresh_token: rttid,
       id_token: idToken,
       authorization_code: null,
     })

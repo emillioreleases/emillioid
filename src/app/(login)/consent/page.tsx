@@ -70,11 +70,6 @@ export default async function Consent({
       .where(eq(sessions.id, session.session.id));
   }
 
-  const context = consent.context as { login_method: string };
-
-  console.log(context.login_method);
-  console.log(consent);
-
   if (consent.skip || consent.client?.skip_consent) {
     let returnUrl;
     try {

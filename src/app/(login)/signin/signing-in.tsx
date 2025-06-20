@@ -11,6 +11,7 @@ import { authClient } from "~/utils/auth-client";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import RobloxLink from "./roblox-link";
+import ms from "ms";
 
 export default function SigningIn({
   login_challenge,
@@ -25,6 +26,7 @@ export default function SigningIn({
     user: User;
   }[];
 }) {
+  const session = authClient.getSession();
   const [error, setError] = useState<string | null>(null);
   const [loginChallenge] = useState(login_challenge);
   const [processed, setProcessed] = useState(false);
@@ -58,7 +60,6 @@ export default function SigningIn({
         .mutateAsync(loginChallenge)
         .then((res) => userRedirect(res))
         .catch((e: { message: string }) => {
-          console.log(e);
           setError(e.message);
         });
     }
@@ -74,31 +75,39 @@ export default function SigningIn({
     }
   }, [loading, sessionsData]);
 
-  console.log(currentPrompt);
-
   if (currentPrompt) {
     switch (currentPrompt) {
       case "login":
-        return (
-          <LoginTemplate
-            title={"Welcome!"}
-            description={"Please login to continue to " + clientName}
-            havePtLinks
-          >
-            {error ? (
-              <Alert variant="destructive">
-                <AlertCircleIcon />
-                <AlertTitle>
-                  Something went wrong during authentication!
-                </AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            ) : (
-              <></>
-            )}
-            <SSOButtons />
-          </LoginTemplate>
-        );
+        void session.then((res) => {
+          if (
+            !res.data ||
+            res.data?.session.updatedAt <
+              new Date(new Date().getTime() - ms("5 minutes"))
+          ) {
+            return (
+              <LoginTemplate
+                title={"Welcome!"}
+                description={"Please login to continue to " + clientName}
+                havePtLinks
+              >
+                {error ? (
+                  <Alert variant="destructive">
+                    <AlertCircleIcon />
+                    <AlertTitle>
+                      Something went wrong during authentication!
+                    </AlertTitle>
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                ) : (
+                  <></>
+                )}
+                <SSOButtons />
+              </LoginTemplate>
+            );
+          } else {
+            setCurrentPrompt("finished");
+          }
+        });
       case "select_account":
         return (
           <LoginTemplate

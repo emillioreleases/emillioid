@@ -33,7 +33,6 @@ export const accountManagementRouter = createTRPCRouter({
         })
         .where(eq(user.id, ctx.session.user.id));
     } catch (e) {
-      console.log(e);
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: e as string,
@@ -56,8 +55,7 @@ export const accountManagementRouter = createTRPCRouter({
           challenge = await ory.getOAuth2LogoutRequest({
             logoutChallenge: input.logout_challenge,
           });
-        } catch (e) {
-          console.log(e);
+        } catch {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "Invalid request",

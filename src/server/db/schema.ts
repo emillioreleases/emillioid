@@ -176,9 +176,6 @@ export const oauth2LoginSession = createTable("oauth2_login_session", (d) => ({
   access_token: d.text("access_token"),
   refresh_token: d.text("refresh_token"),
   authorization_code: d.text("authorization_code"),
-  at_expires_at: d.integer("at_expires_at", { mode: "timestamp" }),
-  rt_expires_at: d.integer("rt_expires_at", { mode: "timestamp" }),
-  ac_expires_at: d.integer("ac_expires_at", { mode: "timestamp" }),
   code_verifier: d.text("code_verifier"),
   redirect_uri: d.text("redirect_uri"),
   session_id: d

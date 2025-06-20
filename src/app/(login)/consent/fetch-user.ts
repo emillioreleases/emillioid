@@ -139,7 +139,6 @@ export default async function fetchUser(
       }
       break;
     case "microsoft":
-      console.log("myteam");
       if (consent.config?.no_staff) {
         return "NO_STAFF";
       }

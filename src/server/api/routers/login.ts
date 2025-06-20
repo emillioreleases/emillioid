@@ -1,6 +1,8 @@
 import { eq } from "drizzle-orm";
+import { base64url, CompactEncrypt, SignJWT } from "jose";
 import ms from "ms";
 import { z } from "zod";
+import { env } from "~/env";
 
 import {
   createTRPCRouter,
@@ -106,16 +108,30 @@ export const loginRouter = createTRPCRouter({
       }
 
       const ac = crypto.randomUUID();
+      const secret = new TextEncoder().encode(env.BETTER_AUTH_SECRET);
+      const signedJWT = await new SignJWT({
+        tid: ac,
+        sid: request.id,
+        sid2: request.id,
+        tt: "authorization_code",
+        ruri: request.redirect_uri,
+      })
+        .setIssuedAt()
+        .setExpirationTime("60s")
+        .setAudience(request.client_id)
+        .setProtectedHeader({ alg: "HS512", typ: "JWT" })
+        .sign(secret);
+      
+      const encryptedJWT = await new CompactEncrypt(new TextEncoder().encode(signedJWT))
+        .setProtectedHeader({ alg: "dir", enc: "A256CBC-HS512" })
+        .encrypt(secret);
 
       await ctx.db.batch([
         ctx.db.insert(oauth2LoginSession).values({
           id_token: null,
           access_token: null,
           refresh_token: null,
-          at_expires_at: null,
-          rt_expires_at: null,
           authorization_code: ac,
-          ac_expires_at: new Date(new Date().getTime() + ms("60 seconds")),
           code_verifier: null,
           session_id: ctx.session.session.id,
           user_id: ctx.session.user.id,
@@ -130,7 +146,7 @@ export const loginRouter = createTRPCRouter({
           .delete(oauth2LoginAttempt)
           .where(eq(oauth2LoginAttempt.id, request.id)),
       ]);
-      return request.redirect_uri+((request.redirect_uri.endsWith("?") ? "&" : "?")+"code="+ac+"&state="+request.state);
+      return request.redirect_uri+((request.redirect_uri.endsWith("?") ? "&" : "?")+"code="+base64url.encode(encryptedJWT)+"&state="+request.state);
     }),
   requestBypass: protectedProcedure.mutation(async ({ ctx }) => {
     ctx.headers.set("Set-Cookie", "bcps.auth.prompt-bypass=true; HttpOnly");

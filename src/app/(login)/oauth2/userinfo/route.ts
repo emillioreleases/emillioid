@@ -1,6 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { db } from "~/server/db";
 import fetchUser from "../../consent/fetch-user";
+import { jwtZ } from "~/utils/jwtZ";
+import { base64url, compactDecrypt, jwtVerify } from "jose";
+import { env } from "~/env";
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("Authorization");
@@ -37,17 +40,54 @@ export async function GET(req: NextRequest) {
     });
   }
 
+  const base64urlData = base64url.decode(token);
+  let jwt;
+  try {
+    const secret = new TextEncoder().encode(env.BETTER_AUTH_SECRET);
+    const decryptedJWT = await compactDecrypt(base64urlData, secret);
+    jwt = await jwtVerify(decryptedJWT.plaintext, secret);
+  } catch {
+    return new NextResponse("Unauthorized", {
+      status: 401,
+      headers: {
+        "WWW-Authenticate":
+          'Bearer error="invalid_token", error_description="The access token is missing or invalid."',
+      },
+    });
+  }
+
+  const jwtData = jwtZ.safeParse(jwt.payload);
+
+  if (!jwtData.success) {
+    return new NextResponse("Unauthorized", {
+      status: 401,
+      headers: {
+        "WWW-Authenticate":
+          'Bearer error="invalid_token", error_description="The access token is missing or invalid."',
+      },
+    });
+  }
+
+  if (jwtData.data.tt !== "access_token") {
+    return new NextResponse("Unauthorized", {
+      status: 401,
+      headers: {
+        "WWW-Authenticate":
+          'Bearer error="invalid_token", error_description="The access token is missing or invalid."',
+      },
+    });
+  }
+
   const oauth2Session = await db.query.oauth2LoginSession.findFirst({
     columns: {
       client_id: true,
       user_id: true,
     },
     where(fields, operators) {
-      return (
-        operators.eq(fields.access_token, token) &&
-        operators.isNotNull(fields.access_token) &&
-        operators.isNotNull(fields.at_expires_at) &&
-        operators.gt(fields.at_expires_at, new Date())
+      return operators.and(
+        operators.eq(fields.access_token, jwtData.data?.tid),
+        operators.isNotNull(fields.access_token),
+        operators.eq(fields.client_id, jwtData.data.aud)
       );
     },
   });
