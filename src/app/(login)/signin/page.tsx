@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { api } from "~/trpc/server";
 import SigningIn from "./signing-in";
 import LoginTemplate from "./login-template";
+import { db } from "~/server/db";
 
 export default async function SignIn({
   searchParams,
@@ -30,6 +31,15 @@ export default async function SignIn({
   let client;
   let prompt;
   if (sp.flow) {
+    const yes = await db.query.oauth2LoginAttempt.findFirst({
+      columns: {
+        promptBypass: true,
+      },
+      where(fields, operators) {
+        return operators.eq(fields.id, sp.flow!);
+      },
+    });
+
     [client, prompt] = await Promise.all([
       api.oauth2.getClientDetails(sp.flow),
       api.oauth2.getStage(sp.flow),
@@ -48,7 +58,7 @@ export default async function SignIn({
 
     const login_challenge = sp.flow;
     if (session?.user) {
-      if (!canLogin.verdict) {
+      if (!canLogin.verdict && (!prompt || yes?.promptBypass)) {
         switch (canLogin.message) {
           case "NO_STAFF":
             return (
@@ -65,6 +75,7 @@ export default async function SignIn({
           <SigningIn
             login_challenge={login_challenge}
             prompt={prompt}
+            promptBypass={yes?.promptBypass}
             clientName={client.name ?? "My Apps"}
             sessions={[
               session,

@@ -93,7 +93,7 @@ export async function GET(req: NextRequest) {
   });
 
   if (!oauth2Session) {
-    return new NextResponse("Unauthorized - No Session", {
+    return new NextResponse("Unauthorized", {
       status: 401,
       headers: {
         "WWW-Authenticate":

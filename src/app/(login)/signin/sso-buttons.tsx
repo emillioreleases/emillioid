@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import { authClient } from "~/utils/auth-client";
 
-export default function SSOButtons() {
+export default function SSOButtons({ withBypassRedirect }: { withBypassRedirect?: boolean }) { 
   const [loggingIN, setLoggingIn] = useState(false);
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -20,7 +20,7 @@ export default function SSOButtons() {
           setLoggingIn(true);
           await authClient.signIn.social({
             provider: "discord",
-            callbackURL: pathname + "?" + searchParams.toString(),
+            callbackURL: !withBypassRedirect ? pathname + "?" + searchParams.toString() : `/oauth2/login-bypass?flow=${searchParams.get("flow")}`,
           });
         }}
         disabled={loggingIN}
@@ -44,7 +44,7 @@ export default function SSOButtons() {
           setLoggingIn(true);
           await authClient.signIn.social({
             provider: "roblox",
-            callbackURL: pathname + "?" + searchParams.toString(),
+            callbackURL: !withBypassRedirect ? pathname + "?" + searchParams.toString() : `/oauth2/login-bypass?flow=${searchParams.get("flow")}`,
           });
         }}
         disabled={loggingIN}
@@ -67,7 +67,7 @@ export default function SSOButtons() {
             setLoggingIn(true);
             await authClient.signIn.social({
               provider: "microsoft",
-              callbackURL: pathname + "?" + searchParams.toString(),
+              callbackURL: !withBypassRedirect ? pathname + "?" + searchParams.toString() : `/oauth2/login-bypass?flow=${searchParams.get("flow")}`,
             });
           }}
           className="font-semibold underline"

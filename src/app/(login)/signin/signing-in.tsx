@@ -11,22 +11,22 @@ import { authClient } from "~/utils/auth-client";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import RobloxLink from "./roblox-link";
-import ms from "ms";
 
 export default function SigningIn({
   login_challenge,
   prompt,
+  promptBypass,
   clientName,
 }: {
   login_challenge: string;
   prompt: string | null;
+  promptBypass?: boolean;
   clientName: string;
   sessions: {
     session: Session;
     user: User;
   }[];
 }) {
-  const session = authClient.getSession();
   const [error, setError] = useState<string | null>(null);
   const [loginChallenge] = useState(login_challenge);
   const [processed, setProcessed] = useState(false);
@@ -38,7 +38,6 @@ export default function SigningIn({
   >(null);
   const router = useRouter();
   const login = api.login.loginUser.useMutation();
-  const requestBypass = api.login.requestBypass.useMutation();
   const loginCapable = api.login.canLogin.useQuery(loginChallenge, {
     enabled: false,
   });
@@ -76,38 +75,32 @@ export default function SigningIn({
   }, [loading, sessionsData]);
 
   if (currentPrompt) {
+    if (promptBypass && currentPrompt !== "finished") {
+      setCurrentPrompt("finished");
+      return <></>;
+    }
     switch (currentPrompt) {
       case "login":
-        void session.then((res) => {
-          if (
-            !res.data ||
-            res.data?.session.updatedAt <
-              new Date(new Date().getTime() - ms("5 minutes"))
-          ) {
-            return (
-              <LoginTemplate
-                title={"Welcome!"}
-                description={"Please login to continue to " + clientName}
-                havePtLinks
-              >
-                {error ? (
-                  <Alert variant="destructive">
-                    <AlertCircleIcon />
-                    <AlertTitle>
-                      Something went wrong during authentication!
-                    </AlertTitle>
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                ) : (
-                  <></>
-                )}
-                <SSOButtons />
-              </LoginTemplate>
-            );
-          } else {
-            setCurrentPrompt("finished");
-          }
-        });
+        return (
+          <LoginTemplate
+            title={"Welcome!"}
+            description={"Please login to continue to " + clientName}
+            havePtLinks
+          >
+            {error ? (
+              <Alert variant="destructive">
+                <AlertCircleIcon />
+                <AlertTitle>
+                  Something went wrong during authentication!
+                </AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            ) : (
+              <></>
+            )}
+            <SSOButtons withBypassRedirect />
+          </LoginTemplate>
+        );
       case "select_account":
         return (
           <LoginTemplate
@@ -141,6 +134,7 @@ export default function SigningIn({
                       await authClient.multiSession.setActive({
                         sessionToken: s.session.token,
                       });
+                      router.push("/oauth2/login-bypass?flow=" + login_challenge);
                     }}
                     disabled={!buttonsEnabled}
                   >
@@ -166,9 +160,7 @@ export default function SigningIn({
               <Button
                 onClick={() => {
                   setButtonsEnabled(false);
-                  void requestBypass.mutateAsync().then(() => {
-                    setCurrentPrompt("loginUser");
-                  });
+                  setCurrentPrompt("login");
                 }}
                 disabled={!buttonsEnabled}
                 variant="default"

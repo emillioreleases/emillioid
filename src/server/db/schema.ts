@@ -166,6 +166,7 @@ export const oauth2LoginAttempt = createTable("oauth2_login_attempt", (d) => ({
   nonce: d.text("nonce"),
   user_id: d.text("user_id").references(() => user.id, { onDelete: "cascade" }),
   prompt: d.text("prompt"),
+  promptBypass: d.integer("prompt_bypass", { mode: "boolean" }).notNull().default(false),
   created_at: d.integer("created_at", { mode: "timestamp" }).notNull(),
   updated_at: d.integer("updated_at", { mode: "timestamp" }).notNull(),
 }));
