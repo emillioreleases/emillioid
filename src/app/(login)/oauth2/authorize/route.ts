@@ -45,6 +45,7 @@ export async function GET(req: NextRequest) {
     state: string | null;
     nonce: string | null;
     user_id: string | null;
+    prompt: string | null;
     created_at: Date;
     updated_at: Date;
   } = {
@@ -56,6 +57,7 @@ export async function GET(req: NextRequest) {
     scope: req.nextUrl.searchParams.get("scope")!,
     state: req.nextUrl.searchParams.get("state"),
     nonce: req.nextUrl.searchParams.get("nonce"),
+    prompt: req.nextUrl.searchParams.get("prompt"),
     created_at: new Date(),
     updated_at: new Date(),
     user_id: null,

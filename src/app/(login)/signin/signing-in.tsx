@@ -134,7 +134,14 @@ export default function SigningIn({
                       await authClient.multiSession.setActive({
                         sessionToken: s.session.token,
                       });
-                      router.push("/oauth2/login-bypass?flow=" + login_challenge);
+                      void loginCapable.refetch().then((res) => {
+                        if (res.data?.verdict) {
+                          setCurrentPrompt("finished");
+                        } else {
+                          setCurrentPrompt("loginError");
+                          setCanLoginMessage(res.data?.message ?? "Unknown error");
+                        }
+                      });
                     }}
                     disabled={!buttonsEnabled}
                   >
