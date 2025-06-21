@@ -21,7 +21,8 @@ export const env = createEnv({
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
-    ORY_API_KEY: z.string(),
+    OAUTH2_TOKEN_SIGN_KEY: z.string(),
+    OAUTH2_TOKEN_ENCRYPT_KEY: z.string(),
   },
 
   /**
@@ -50,7 +51,8 @@ export const env = createEnv({
     DATABASE_URL: process.env.DATABASE_URL,
     DATABASE_TOKEN: process.env.DATABASE_TOKEN,
     NODE_ENV: process.env.NODE_ENV,
-    ORY_API_KEY: process.env.ORY_API_KEY
+    OAUTH2_TOKEN_SIGN_KEY: process.env.OAUTH2_TOKEN_SIGN_KEY,
+    OAUTH2_TOKEN_ENCRYPT_KEY: process.env.OAUTH2_TOKEN_ENCRYPT_KEY,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

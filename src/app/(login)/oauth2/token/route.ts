@@ -11,6 +11,8 @@ import { jwtZ } from "~/utils/jwtZ";
 
 export async function POST(req: NextRequest) {
   const fdata = await req.formData();
+  const encryptSecret = new TextEncoder().encode(env.OAUTH2_TOKEN_ENCRYPT_KEY);
+  const signSecret = new TextEncoder().encode(env.OAUTH2_TOKEN_SIGN_KEY);
   const grantType = z
     .enum(["authorization_code", "refresh_token"])
     .safeParse(fdata.get("grant_type")!);
@@ -59,11 +61,10 @@ export async function POST(req: NextRequest) {
   const stuff = base64url.decode(grantType.data === "authorization_code" ? code.data! : refresh_token.data!);
   let jwt;
   try {
-    const secret = new TextEncoder().encode(env.BETTER_AUTH_SECRET);
-    const decryptedJWT = await compactDecrypt(stuff, secret);
+    const decryptedJWT = await compactDecrypt(stuff, encryptSecret);
     jwt = await jwtVerify(
       new TextDecoder().decode(decryptedJWT.plaintext),
-      secret,
+      signSecret,
       {
         audience: clientId.data,
       },
@@ -309,7 +310,6 @@ export async function POST(req: NextRequest) {
 
   const attid = crypto.randomUUID();
   const rttid = crypto.randomUUID();
-  const secret = new TextEncoder().encode(env.BETTER_AUTH_SECRET);
 
   const accessTokenSigned = await new SignJWT({
     sub: userData.subject,
@@ -322,7 +322,7 @@ export async function POST(req: NextRequest) {
     .setAudience(clientConfig.id)
     .setExpirationTime("5 minutes")
     .setProtectedHeader({ alg: "HS512", typ: "JWT" })
-    .sign(secret);
+    .sign(signSecret);
 
   const refreshTokenSigned = await new SignJWT({
     sub: userData.subject,
@@ -335,15 +335,15 @@ export async function POST(req: NextRequest) {
     .setAudience(clientConfig.id)
     .setExpirationTime("30d")
     .setProtectedHeader({ alg: "HS512", typ: "JWT" })
-    .sign(secret);
+    .sign(signSecret);
 
   const accessToken = await new CompactEncrypt(new TextEncoder().encode(accessTokenSigned))
     .setProtectedHeader({ alg: "dir", enc: "A256CBC-HS512" })
-    .encrypt(secret);
+    .encrypt(encryptSecret);
   
   const refreshToken = await new CompactEncrypt(new TextEncoder().encode(refreshTokenSigned))
     .setProtectedHeader({ alg: "dir", enc: "A256CBC-HS512" })
-    .encrypt(secret);
+    .encrypt(encryptSecret);
 
   await db
     .update(oauth2LoginSession)

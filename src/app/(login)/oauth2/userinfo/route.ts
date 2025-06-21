@@ -43,9 +43,10 @@ export async function GET(req: NextRequest) {
   const base64urlData = base64url.decode(token);
   let jwt;
   try {
-    const secret = new TextEncoder().encode(env.BETTER_AUTH_SECRET);
-    const decryptedJWT = await compactDecrypt(base64urlData, secret);
-    jwt = await jwtVerify(decryptedJWT.plaintext, secret);
+    const encryptSecret = new TextEncoder().encode(env.OAUTH2_TOKEN_ENCRYPT_KEY);
+    const signSecret = new TextEncoder().encode(env.OAUTH2_TOKEN_SIGN_KEY);
+    const decryptedJWT = await compactDecrypt(base64urlData, encryptSecret);
+    jwt = await jwtVerify(decryptedJWT.plaintext, signSecret);
   } catch {
     return new NextResponse("Unauthorized", {
       status: 401,

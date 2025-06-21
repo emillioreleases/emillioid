@@ -1,0 +1,48 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1750523900267,
+      "tag": "0000_tired_ben_grimm",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1750523938047,
+      "tag": "0001_flippant_newton_destine",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1750524181511,
+      "tag": "0002_silky_maddog",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1750524265053,
+      "tag": "0003_rare_skin",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1750524387849,
+      "tag": "0004_fair_silvermane",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1750524470337,
+      "tag": "0005_steep_preak",
+      "breakpoints": true
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
-import { index, sqliteTableCreator } from "drizzle-orm/sqlite-core";
+import { index, sqliteTableCreator, uniqueIndex } from "drizzle-orm/sqlite-core";
+import type { JWK } from "jose";
 
 /**
  * This is an example of how to use the multi-project schema feature of Drizzle ORM. Use the same
@@ -45,7 +46,7 @@ export const user = createTable("user", (d) => ({
   groups: d.text("groups").default(JSON.stringify([])).notNull(),
   verifiedWanted: d
     .integer("verified_wanted", { mode: "boolean" })
-    .default(false)
+    .$defaultFn(() => false)
     .notNull(),
   createdAt: d
     .integer("created_at", { mode: "timestamp" })
@@ -113,13 +114,14 @@ export const verification = createTable("verification", (d) => ({
 }));
 
 export const oauth2Client = createTable("oauth2_client", (d) => ({
-  id: d.text("id").primaryKey(),
+  id: d.text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   clientSecret: d.text("client_secret").notNull(),
   name: d.text("name").notNull(),
   consentNeeded: d
     .integer("consent_needed", { mode: "boolean" })
     .notNull()
-    .default(true),
+    .$defaultFn(() =>true),
+  jwtSigningAlgorithm: d.text("jwt_signing_algorithm").references(() => oauth2Keys.alg).default("ES256").notNull(),
   postLogoutRedirectUris: d.text("post_logout_redirect_uris").notNull(),
   redirectUris: d.text("redirect_uris").notNull(),
   frontchannelLogoutUri: d.text("frontchannel_logout_uri").notNull(),
@@ -129,14 +131,16 @@ export const oauth2Client = createTable("oauth2_client", (d) => ({
   with_discord_direct: d
     .integer("with_discord_direct", { mode: "boolean" })
     .notNull()
-    .default(false),
+    .$defaultFn(() => false),
   with_no_staff: d
     .integer("with_no_staff", { mode: "boolean" })
     .notNull()
-    .default(false),
+    .$defaultFn(() => false),
   createdAt: d.integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: d.integer("updated_at", { mode: "timestamp" }).notNull(),
-}));
+}), (t) => [
+  index("id_idx").on(t.id),
+]);
 
 export const oauth2Consent = createTable("oauth2_consent", (d) => ({
   id: d.text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -153,7 +157,7 @@ export const oauth2Consent = createTable("oauth2_consent", (d) => ({
 }));
 
 export const oauth2LoginAttempt = createTable("oauth2_login_attempt", (d) => ({
-  id: d.text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  id: d.text("id").primaryKey().$defaultFn(() => crypto.randomUUID()).unique(),
   client_id: d
     .text("client_id")
     .notNull()
@@ -166,10 +170,12 @@ export const oauth2LoginAttempt = createTable("oauth2_login_attempt", (d) => ({
   nonce: d.text("nonce"),
   user_id: d.text("user_id").references(() => user.id, { onDelete: "cascade" }),
   prompt: d.text("prompt"),
-  promptBypass: d.integer("prompt_bypass", { mode: "boolean" }).notNull().default(false),
+  promptBypass: d.integer("prompt_bypass", { mode: "boolean" }).notNull().$defaultFn(() => false),
   created_at: d.integer("created_at", { mode: "timestamp" }).notNull(),
   updated_at: d.integer("updated_at", { mode: "timestamp" }).notNull(),
-}));
+}), (t) => [
+  uniqueIndex("id_unique").on(t.id),
+]);
 
 export const oauth2LoginSession = createTable("oauth2_login_session", (d) => ({
   id: d.text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -195,27 +201,23 @@ export const oauth2LoginSession = createTable("oauth2_login_session", (d) => ({
   token_type: d.text("token_type").notNull(),
   created_at: d.integer("created_at", { mode: "timestamp" }).notNull(),
   updated_at: d.integer("updated_at", { mode: "timestamp" }).notNull(),
-}));
+}), (t) => [
+  index("access_token_idx").on(t.access_token),
+  index("refresh_token_idx").on(t.refresh_token),
+  index("client_id_idx").on(t.client_id),
+]);
 
 export const oauth2Keys = createTable("oauth2_keys", (d) => ({
   id: d.text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  alg: d.text().notNull(),
+  alg: d.text().notNull().unique(),
   public_key: d
     .text({ mode: "json" })
-    .$type<{ e: string; kty: string; n: string }>()
+    .$type<JWK>()
     .notNull(),
   private_key: d
     .text({ mode: "json" })
-    .$type<{
-      d: string;
-      dp: string;
-      dq: string;
-      e: string;
-      kty: string;
-      n: string;
-      p: string;
-      q: string;
-      qi: string;
-    }>()
-    .notNull(),
-}));
+    .$type<JWK>()
+    .notNull(), 
+}), (t) => [
+  uniqueIndex("alg_unique").on(t.alg),
+]);

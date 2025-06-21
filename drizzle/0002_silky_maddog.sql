@@ -1,0 +1,2 @@
+CREATE UNIQUE INDEX `bcps-orylogin_oauth2_login_attempt_id_unique` ON `bcps-orylogin_oauth2_login_attempt` (`id`);--> statement-breakpoint
+CREATE UNIQUE INDEX `id_unique` ON `bcps-orylogin_oauth2_login_attempt` (`id`);

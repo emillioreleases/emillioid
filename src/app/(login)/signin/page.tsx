@@ -119,7 +119,7 @@ export default async function SignIn({
             }
             havePtLinks
           >
-            <SSOButtons />
+            <SSOButtons withBypassRedirect />
           </LoginTemplate>
         );
     }
