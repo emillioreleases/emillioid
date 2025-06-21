@@ -1,4 +1,4 @@
-import { sqliteTable, AnySQLiteColumn, foreignKey, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core"
+import { sqliteTable, foreignKey, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core"
   import { sql } from "drizzle-orm"
 
 export const bcpsOryloginAccount = sqliteTable("bcps-orylogin_account", {
