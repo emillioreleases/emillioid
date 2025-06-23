@@ -47,7 +47,12 @@ export default function SigningIn({
   const [canLoginMessage, setCanLoginMessage] = useState("");
 
   useEffect(() => {
-    if (currentPrompt === "finished" && !processed && (!discordDirect || accountToUse)) {
+    if (currentPrompt === "finished" && !processed) {
+      if (discordDirect && !accountToUse) {
+        setCurrentPrompt("profile_select");
+        return;
+      }
+
       setProcessed(true);
 
       function userRedirect(url: string) {
@@ -139,7 +144,11 @@ export default function SigningIn({
                       });
                       void loginCapable.refetch().then((res) => {
                         if (res.data?.verdict) {
-                          setCurrentPrompt("finished");
+                          if (res.data.message === "with_discord_direct" && !accountToUse) {
+                            setCurrentPrompt("profile_select");
+                          } else {
+                            setCurrentPrompt("finished");
+                          }
                         } else {
                           setCurrentPrompt("loginError");
                           setCanLoginMessage(res.data?.message ?? "Unknown error");
