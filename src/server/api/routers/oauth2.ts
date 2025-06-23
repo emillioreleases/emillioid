@@ -76,6 +76,8 @@ export const oauth2Router = createTRPCRouter({
     return await ctx.db.query.oauth2Client.findFirst({
       columns: {
         name: true,
+        with_discord_direct: true,
+        with_no_staff: true,
       },
       where(fields, operators) {
         return operators.eq(fields.id, request.client_id);

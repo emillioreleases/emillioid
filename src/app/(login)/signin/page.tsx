@@ -77,6 +77,7 @@ export default async function SignIn({
             prompt={prompt}
             promptBypass={yes?.promptBypass}
             clientName={client.name ?? "My Apps"}
+            discordDirect={client.with_discord_direct}
             sessions={[
               session,
               ...ms
