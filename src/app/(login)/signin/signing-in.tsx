@@ -264,16 +264,22 @@ export default function SigningIn({
               </LoginTemplate>
             );
           } else {
+            setAccountToUse("discord");
             setCurrentPrompt("finished");
           }
         }).catch(() => {
+          setAccountToUse("discord");
           setCurrentPrompt("finished");
         });
       default:
         if (currentPrompt !== "finished") {
           void loginCapable.refetch().then((res) => {
             if (res.data?.verdict) {
-              setCurrentPrompt("finished");
+              if (res.data.message === "with_discord_direct" && !accountToUse) {
+                setCurrentPrompt("profile_select");
+              } else {
+                setCurrentPrompt("finished");
+              }
             } else {
               setCurrentPrompt("loginError");
               setCanLoginMessage(res.data?.message ?? "Unknown error");
@@ -286,7 +292,11 @@ export default function SigningIn({
     if (currentPrompt !== "finished") {
       void loginCapable.refetch().then((res) => {
         if (res.data?.verdict) {
-          setCurrentPrompt("finished");
+          if (res.data.message === "with_discord_direct" && !accountToUse) {
+            setCurrentPrompt("profile_select");
+          } else {
+            setCurrentPrompt("finished");
+          }
         } else {
           setCurrentPrompt("loginError");
           setCanLoginMessage(res.data?.message ?? "Unknown error");
