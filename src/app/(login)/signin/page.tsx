@@ -68,7 +68,7 @@ export default async function SignIn({
               </div>
             );
           case "NO_ROBLOX_ACCOUNT":
-            return <RobloxLink clientName={client.name ?? "My Apps"} />;
+            return <RobloxLink clientName={client.name ?? "My Apps"} challenge={login_challenge} />;
         }
       } else {
         return (
@@ -100,7 +100,7 @@ export default async function SignIn({
             </div>
           );
         case "NO_ROBLOX_ACCOUNT":
-          return <RobloxLink clientName={client?.name ?? "My Apps"} />;
+          return <RobloxLink clientName={client?.name ?? "My Apps"} challenge={sp.flow!} />;
       }
     } else {
     }

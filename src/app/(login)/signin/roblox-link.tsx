@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { api } from "~/trpc/react";
 
-export default function RobloxLink({ clientName }: { clientName: string }) {
+export default function RobloxLink({ clientName, challenge }: { clientName: string, challenge: string }) {
   const router = useRouter();
   const [area, setArea] = useState<"select" | "selectThirdParty">("select");
   const [buttonsEnabled, setButtonsEnabled] = useState(true);
@@ -33,14 +33,13 @@ export default function RobloxLink({ clientName }: { clientName: string }) {
   }, [bloxlinkLink.isPending]);
 
   useEffect(() => {
-    if (bloxlinkLink.isSuccess) {
+    if (bloxlinkLink.isSuccess && !success) {
       setSuccess(true);
+      if (typeof window !== "undefined") {
+        window.location.reload();
+      }
     }
-  }, [bloxlinkLink.isSuccess]);
-
-  if (success) {
-    router.refresh();
-  }
+  }, [bloxlinkLink.isSuccess, router, success]);
 
   return (
     <>
@@ -88,7 +87,7 @@ export default function RobloxLink({ clientName }: { clientName: string }) {
                   <div className="flex w-full flex-col space-y-2 text-left">
                     <button
                       className="flex grow flex-col justify-start rounded-lg border border-gray-900 bg-gray-950 p-6 text-left"
-                      onClick={() => bloxlinkLink.mutate()}
+                      onClick={() => bloxlinkLink.mutate(challenge)}
                       disabled={!buttonsEnabled}
                     >
                       <span className="text-lg font-bold">

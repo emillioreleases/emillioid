@@ -86,6 +86,10 @@ export const loginRouter = createTRPCRouter({
       return await canLogin(ctx, input);
     }),
 
+  hasConnectedRobloxAccount: protectedProcedure.query(async ({ ctx }) => {
+    return ctx.session.user.connectedRobloxAccount !== null;
+  }),
+
   loginUser: protectedProcedure
     .input(z.object({ loginChallenge: z.string(), forceRobloxAccount: z.boolean().optional() }))
     .mutation(async ({ ctx, input }) => {
@@ -105,7 +109,7 @@ export const loginRouter = createTRPCRouter({
       }
 
 
-      if (allowed.message === "with_discord_direct" && !input.forceRobloxAccount) {
+      if (allowed.message === "with_discord_direct" && typeof input.forceRobloxAccount !== "boolean") {
         throw new Error("Invalid login");
       }
 
