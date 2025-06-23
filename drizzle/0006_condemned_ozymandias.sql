@@ -1,0 +1,1 @@
+ALTER TABLE `bcps-orylogin_oauth2_login_session` ADD `force_roblox_account` integer;

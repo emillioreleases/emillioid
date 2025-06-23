@@ -83,6 +83,7 @@ export async function GET(req: NextRequest) {
     columns: {
       client_id: true,
       user_id: true,
+      force_roblox_account: true
     },
     where(fields, operators) {
       return operators.and(
@@ -145,7 +146,7 @@ export async function GET(req: NextRequest) {
     account.providerId === "microsoft" ? user.id : account.accountId,
     account.providerId,
     {
-      discord_direct: client.with_discord_direct,
+      discord_direct: oauth2Session.force_roblox_account ? false : client.with_discord_direct,
       no_staff: client.with_no_staff,
     },
   );

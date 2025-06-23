@@ -43,6 +43,20 @@
       "when": 1750524470337,
       "tag": "0005_steep_preak",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1750649973110,
+      "tag": "0006_condemned_ozymandias",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1750650012693,
+      "tag": "0007_living_radioactive_man",
+      "breakpoints": true
     }
   ]
 }

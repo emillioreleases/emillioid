@@ -16,12 +16,14 @@ export default function SigningIn({
   login_challenge,
   prompt,
   promptBypass,
+  discordDirect,
   clientName,
 }: {
   login_challenge: string;
   prompt: string | null;
   promptBypass?: boolean;
   clientName: string;
+  discordDirect?: boolean;
   sessions: {
     session: Session;
     user: User;
@@ -32,6 +34,7 @@ export default function SigningIn({
   const [processed, setProcessed] = useState(false);
   const [buttonsEnabled, setButtonsEnabled] = useState(true);
   const [currentPrompt, setCurrentPrompt] = useState<string | null>(prompt);
+  const [accountToUse, setAccountToUse] = useState<"discord" | "roblox" | null>(null);
   const [loading, setLoading] = useState(false);
   const [sessionsData, setSessionsData] = useState<
     { session: Session; user: User }[] | null
@@ -44,7 +47,7 @@ export default function SigningIn({
   const [canLoginMessage, setCanLoginMessage] = useState("");
 
   useEffect(() => {
-    if (currentPrompt === "finished" && !processed) {
+    if (currentPrompt === "finished" && !processed && (!discordDirect || accountToUse)) {
       setProcessed(true);
 
       function userRedirect(url: string) {
@@ -56,13 +59,13 @@ export default function SigningIn({
       }
 
       void login
-        .mutateAsync(loginChallenge)
+        .mutateAsync({ loginChallenge, forceRobloxAccount: (accountToUse === "roblox") })
         .then((res) => userRedirect(res))
         .catch((e: { message: string }) => {
           setError(e.message);
         });
     }
-  }, [currentPrompt, login, loginChallenge, processed, router]);
+  }, [accountToUse, currentPrompt, discordDirect, login, loginChallenge, processed, router]);
 
   useEffect(() => {
     if (!loading && !sessionsData) {
@@ -190,6 +193,82 @@ export default function SigningIn({
           case "NO_ROBLOX_ACCOUNT":
             return <RobloxLink clientName={clientName ?? "My Apps"} />;
         }
+      case "profile_select":
+        void authClient.getSession().then((res) => {
+          if ((res.data?.user as { connectedRobloxAccount?: string | null }).connectedRobloxAccount) {
+            return (
+              <LoginTemplate
+                title={"Select the profile you want to use"}
+                description={
+                  "Please select the profile you want to use to continue to " +
+                  clientName
+                }
+                havePtLinks
+              >
+                {error ? (
+                  <Alert variant="destructive">
+                    <AlertCircleIcon />
+                    <AlertTitle>
+                      Something went wrong during authentication!
+                    </AlertTitle>
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                ) : (
+                  <></>
+                )}
+
+                <div className="flex w-full flex-col items-center justify-center space-y-2">
+                  <Button
+                    variant={"outline"}
+                    onClick={() => {
+                      setAccountToUse("roblox");
+                      setCurrentPrompt("continue");
+                    }}
+                    disabled={!buttonsEnabled}
+                  >
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={"/auth-logos/roblox.svg"} alt={"Roblox"} />
+                      <AvatarFallback>
+                        <UserIcon />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col items-start justify-start">
+                      <span className="font-bold">Roblox</span>
+                      <span className="text-sm text-gray-400">
+                        Use your Roblox account
+                      </span>
+                    </div>
+                  </Button>
+                  <Button
+                    variant={"outline"}
+                    onClick={() => {
+                      setAccountToUse("discord");
+                      setCurrentPrompt("continue");
+                    }}
+                    disabled={!buttonsEnabled}
+                  >
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={"/auth-logos/discord.svg"} alt={"Discord"} />
+                      <AvatarFallback>
+                        <UserIcon />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col items-start justify-start">
+                      <span className="font-bold">Discord</span>
+                      <span className="text-sm text-gray-400">
+                        Use your Discord account
+                      </span>
+                    </div>
+                  </Button>
+                </div>
+              </LoginTemplate>
+            );
+          } else {
+            setCurrentPrompt("finished");
+          }
+        }).catch(() => {
+          setCurrentPrompt("finished");
+        });
       default:
         if (currentPrompt !== "finished") {
           void loginCapable.refetch().then((res) => {
@@ -215,6 +294,11 @@ export default function SigningIn({
       });
     }
   }
+
+  if (discordDirect && !accountToUse && currentPrompt !== "profile_select") {
+    setCurrentPrompt("profile_select");
+  }
+
 
   return (
     <LoginTemplate

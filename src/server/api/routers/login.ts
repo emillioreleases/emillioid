@@ -87,20 +87,25 @@ export const loginRouter = createTRPCRouter({
     }),
 
   loginUser: protectedProcedure
-    .input(z.string())
+    .input(z.object({ loginChallenge: z.string(), forceRobloxAccount: z.boolean().optional() }))
     .mutation(async ({ ctx, input }) => {
-      const allowed = await canLogin(ctx, input);
+      const allowed = await canLogin(ctx, input.loginChallenge);
       if (!allowed.verdict) {
         throw new Error("Invalid login");
       }
 
       const request = await ctx.db.query.oauth2LoginAttempt.findFirst({
         where(fields, operators) {
-          return operators.eq(fields.id, input);
+          return operators.eq(fields.id, input.loginChallenge);
         },
       });
 
       if (!request) {
+        throw new Error("Invalid login");
+      }
+
+
+      if (allowed.message === "with_discord_direct" && !input.forceRobloxAccount) {
         throw new Error("Invalid login");
       }
 
@@ -143,6 +148,7 @@ export const loginRouter = createTRPCRouter({
           token_type: "Bearer",
           created_at: new Date(),
           updated_at: new Date(),
+          force_roblox_account: allowed.message !== "with_discord_direct" ? false : input.forceRobloxAccount,
         }),
         ctx.db
           .delete(oauth2LoginAttempt)
