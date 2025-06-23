@@ -314,20 +314,22 @@ export default function SigningIn({
     }
   }
 
-  return (
-    <LoginTemplate
-      title={"Signing in..."}
-      description={"Please wait while we sign you in."}
-    >
-      {error ? (
-        <Alert variant="destructive">
-          <AlertCircleIcon />
-          <AlertTitle>Something went wrong during authentication!</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      ) : (
-        <></>
-      )}
-    </LoginTemplate>
-  );
+  if (currentPrompt === "finished") {
+    return (
+      <LoginTemplate
+        title={"Signing in..."}
+        description={"Please wait while we sign you in."}
+      >
+        {error ? (
+          <Alert variant="destructive">
+            <AlertCircleIcon />
+            <AlertTitle>Something went wrong during authentication!</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : (
+          <></>
+        )}
+      </LoginTemplate>
+    );
+  }
 }
