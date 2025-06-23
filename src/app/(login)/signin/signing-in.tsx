@@ -281,7 +281,7 @@ export default function SigningIn({
           setCurrentPrompt("finished");
         });
       default:
-        if (currentPrompt !== "finished") {
+        if (currentPrompt !== "finished" && currentPrompt !== "profile_select" && currentPrompt !== "loginError") {
           void loginCapable.refetch().then((res) => {
             if (res.data?.verdict) {
               if (res.data.message === "with_discord_direct" && !accountToUse) {
@@ -298,7 +298,7 @@ export default function SigningIn({
         break;
     }
   } else {
-    if (currentPrompt !== "finished") {
+    if (currentPrompt !== "finished" && currentPrompt !== "profile_select" && currentPrompt !== "loginError") {
       void loginCapable.refetch().then((res) => {
         if (res.data?.verdict) {
           if (res.data.message === "with_discord_direct" && !accountToUse) {
@@ -313,11 +313,6 @@ export default function SigningIn({
       });
     }
   }
-
-  if (discordDirect && !accountToUse && currentPrompt !== "profile_select") {
-    setCurrentPrompt("profile_select");
-  }
-
 
   return (
     <LoginTemplate
