@@ -233,6 +233,7 @@ export async function POST(req: NextRequest) {
       columns: {
         id: true,
         clientSecret: true,
+        jwtSigningAlgorithm: true,
         with_discord_direct: true,
         with_no_staff: true,
       },
@@ -317,7 +318,7 @@ export async function POST(req: NextRequest) {
         await db.query.oauth2Keys
           .findFirst({
             where(fields, operators) {
-              return operators.eq(fields.alg, "RS256");
+              return operators.eq(fields.alg, clientConfig.jwtSigningAlgorithm);
             },
           })
           .then((res) => res!.private_key),
