@@ -3,8 +3,42 @@ import { multiSession } from "better-auth/plugins";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { env } from "~/env";
 import { db } from "~/server/db"; // your drizzle instance
-import { user } from "../db/schema";
+import { user } from "~/server/db/schema";
 import { eq } from "drizzle-orm";
+import { decodeJwt } from "jose";
+
+let token_data: { access_token: string; expiry: number } | null = null;
+async function getAccessToken() {
+  if (token_data) {
+    if (token_data.expiry > Date.now()) {
+      return token_data.access_token;
+    } else {
+      token_data = null;
+    }
+  }
+
+  if (!token_data) {
+    const data = (await fetch(
+      "https://login.microsoftonline.com/" +
+        "22154f5d-99aa-441b-b2fb-faed3d21b3cb" +
+        "/oauth2/v2.0/token",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          client_id: "759edeb2-774d-48e1-a4d6-4fccd621ba0a",
+          client_secret: "Nfr8Q~hU3SDTtd.w7wEN680df_~GDiC5R4~PlbBQ",
+          grant_type: "client_credentials",
+          scope: "https://graph.microsoft.com/.default",
+        }),
+      },
+    ).then((res) => res.json())) as { access_token: string; expiry: number };
+    token_data = data;
+    return data.access_token;
+  }
+}
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -56,29 +90,27 @@ export const auth = betterAuth({
     microsoft: {
       clientId: env.AUTH_MICROSOFT_ID,
       clientSecret: env.AUTH_MICROSOFT_SECRET,
-      scope: [
-        "openid",
-        "profile",
-        "email",
-        "User.Read",
-        "CustomSecAttributeAssignment.Read.All",
-        "CustomSecAttributeDefinition.Read.All",
-      ],
+      scope: ["openid", "profile", "email", "User.Read"],
       tenantId: env.AUTH_MICROSOFT_TENANT_ID,
       overrideUserInfoOnSignIn: true,
       async getUserInfo(accessToken) {
-        const [userFetch, groupsFetch] = await Promise.all([
+        const [userFetch, attributeFetch, groupsFetch] = await Promise.all([
           fetch(
-            "https://graph.microsoft.com/v1.0/me?$select=id,mail,displayName,givenName,surName,customSecurityAttributes",
+            "https://graph.microsoft.com/v1.0/me?$select=id,mail,displayName,givenName,surName",
             { headers: { Authorization: `Bearer ${accessToken.accessToken}` } },
+          ),
+          fetch(
+            `https://graph.microsoft.com/v1.0/users/${decodeJwt(accessToken.idToken!).oid as string}?$select=customSecurityAttributes`,
+            { headers: { Authorization: `Bearer ${await getAccessToken()}` } },
           ),
           fetch(
             "https://graph.microsoft.com/v1.0/me/memberOf/microsoft.graph.group?$select=displayName",
             { headers: { Authorization: `Bearer ${accessToken.accessToken}` } },
           ),
         ]);
-        const [user, groups] = (await Promise.all([
+        const [user, attributes, groups] = (await Promise.all([
           userFetch.json(),
+          attributeFetch.json(),
           groupsFetch.json(),
         ])) as [
           {
@@ -87,6 +119,8 @@ export const auth = betterAuth({
             displayName: string;
             givenName: string;
             surname: string;
+          },
+          {
             customSecurityAttributes: Record<string, Record<string, string>>;
           },
           { value: { displayName: string }[] },
@@ -99,8 +133,9 @@ export const auth = betterAuth({
             image: `https://mtav.bloxvalschools.com/${user.mail.split("@")[0]}`,
             groups: JSON.stringify(groups.value.map((g) => g.displayName)),
             emailVerified: true,
-            connectedRobloxAccount: user.customSecurityAttributes.socialIDs
-              ? user.customSecurityAttributes.socialIDs.robloxID
+            connectedRobloxAccount: attributes.customSecurityAttributes
+              .socialIDs
+              ? attributes.customSecurityAttributes.socialIDs.robloxID
               : null,
             verifiedWanted: true,
           },

@@ -2,7 +2,14 @@ import { NextResponse, type NextRequest } from "next/server";
 import { db } from "~/server/db";
 import fetchUser from "../../consent/fetch-user";
 import { z } from "zod";
-import { base64url, compactDecrypt, CompactEncrypt, importJWK, jwtVerify, SignJWT } from "jose";
+import {
+  base64url,
+  compactDecrypt,
+  CompactEncrypt,
+  importJWK,
+  jwtVerify,
+  SignJWT,
+} from "jose";
 import { env } from "~/env";
 import ms from "ms";
 import { oauth2LoginSession } from "~/server/db/schema";
@@ -27,7 +34,10 @@ export async function POST(req: NextRequest) {
   if (grantType.error) {
     errors.push("grantType is invalid");
   }
-  if (grantType.data === "authorization_code" && (!code.success || !redirectUri.success)) {
+  if (
+    grantType.data === "authorization_code" &&
+    (!code.success || !redirectUri.success)
+  ) {
     errors.push("Missing code");
   }
   if (
@@ -58,7 +68,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const stuff = base64url.decode(grantType.data === "authorization_code" ? code.data! : refresh_token.data!);
+  const stuff = base64url.decode(
+    grantType.data === "authorization_code" ? code.data! : refresh_token.data!,
+  );
   let jwt;
   try {
     const decryptedJWT = await compactDecrypt(stuff, encryptSecret);
@@ -69,7 +81,7 @@ export async function POST(req: NextRequest) {
         audience: clientId.data,
       },
     );
-  } catch  {
+  } catch {
     return NextResponse.json(
       {
         error: "invalid_grant",
@@ -155,7 +167,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-/*   if (jwtData.data.scope !== scope.data && grantType.data === "refresh_token") {
+  /*   if (jwtData.data.scope !== scope.data && grantType.data === "refresh_token") {
     return NextResponse.json(
       {
         error: "invalid_grant",
@@ -282,8 +294,6 @@ export async function POST(req: NextRequest) {
     sub: userData.subject,
     sid: oauth2Session.session_id,
     name: userData.name,
-    given_name: userData.name.split(" ")[0],
-    family_name: userData.name.split(" ")[1],
     preferred_username: userData.preferred_username,
     picture: userData.picture,
     email: userData.email,
@@ -337,11 +347,15 @@ export async function POST(req: NextRequest) {
     .setProtectedHeader({ alg: "HS512", typ: "JWT" })
     .sign(signSecret);
 
-  const accessToken = await new CompactEncrypt(new TextEncoder().encode(accessTokenSigned))
+  const accessToken = await new CompactEncrypt(
+    new TextEncoder().encode(accessTokenSigned),
+  )
     .setProtectedHeader({ alg: "dir", enc: "A256CBC-HS512" })
     .encrypt(encryptSecret);
-  
-  const refreshToken = await new CompactEncrypt(new TextEncoder().encode(refreshTokenSigned))
+
+  const refreshToken = await new CompactEncrypt(
+    new TextEncoder().encode(refreshTokenSigned),
+  )
     .setProtectedHeader({ alg: "dir", enc: "A256CBC-HS512" })
     .encrypt(encryptSecret);
 

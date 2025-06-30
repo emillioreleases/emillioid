@@ -6,7 +6,11 @@ import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import { authClient } from "~/utils/auth-client";
 
-export default function SSOButtons({ withBypassRedirect }: { withBypassRedirect?: boolean }) { 
+export default function SSOButtons({
+  withBypassRedirect,
+}: {
+  withBypassRedirect?: boolean;
+}) {
   const [loggingIN, setLoggingIn] = useState(false);
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -20,7 +24,9 @@ export default function SSOButtons({ withBypassRedirect }: { withBypassRedirect?
           setLoggingIn(true);
           await authClient.signIn.social({
             provider: "discord",
-            callbackURL: !withBypassRedirect ? pathname + "?" + searchParams.toString() : `/oauth2/login-bypass?flow=${searchParams.get("flow")}`,
+            callbackURL: !withBypassRedirect
+              ? pathname + "?" + searchParams.toString()
+              : `/oauth2/login-bypass?flow=${searchParams.get("flow")}`,
           });
         }}
         disabled={loggingIN}
@@ -44,7 +50,9 @@ export default function SSOButtons({ withBypassRedirect }: { withBypassRedirect?
           setLoggingIn(true);
           await authClient.signIn.social({
             provider: "roblox",
-            callbackURL: !withBypassRedirect ? pathname + "?" + searchParams.toString() : `/oauth2/login-bypass?flow=${searchParams.get("flow")}`,
+            callbackURL: !withBypassRedirect
+              ? pathname + "?" + searchParams.toString()
+              : `/oauth2/login-bypass?flow=${searchParams.get("flow")}`,
           });
         }}
         disabled={loggingIN}
@@ -67,7 +75,9 @@ export default function SSOButtons({ withBypassRedirect }: { withBypassRedirect?
             setLoggingIn(true);
             await authClient.signIn.social({
               provider: "microsoft",
-              callbackURL: !withBypassRedirect ? pathname + "?" + searchParams.toString() : `/oauth2/login-bypass?flow=${searchParams.get("flow")}`,
+              callbackURL: !withBypassRedirect
+                ? pathname + "?" + searchParams.toString()
+                : `/oauth2/login-bypass?flow=${searchParams.get("flow")}`,
             });
           }}
           className="font-semibold underline"

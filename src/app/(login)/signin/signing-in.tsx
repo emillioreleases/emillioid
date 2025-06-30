@@ -240,7 +240,12 @@ export default function SigningIn({
               </div>
             );
           case "NO_ROBLOX_ACCOUNT":
-            return <RobloxLink clientName={clientName ?? "My Apps"} challenge={login_challenge} />;
+            return (
+              <RobloxLink
+                clientName={clientName ?? "My Apps"}
+                challenge={login_challenge}
+              />
+            );
         }
       case "profile_select":
         if (session.isPending) {
@@ -248,6 +253,7 @@ export default function SigningIn({
         }
         if (
           !accountToUse &&
+          !session.data?.user.email.endsWith("@students.bloxvalschools.com") &&
           (session.data?.user as { connectedRobloxAccount?: string | null })
             ?.connectedRobloxAccount
         ) {
