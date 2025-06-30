@@ -35,11 +35,9 @@ export default async function fetchUser(
   switch (context.login_method) {
     case "roblox":
       const [userFetch, avatarFetch] = await Promise.all([
+        fetch(`https://users.roblox.com/v1/users/${userId}`),
         fetch(
-          `https://users.roblox.com/v1/users/${userId}`,
-        ),
-        fetch(
-          `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&format=Png&size=720x720`,
+          `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&format=Png&size=150x150`,
         ),
       ]);
       const [userData1, avatar] = (await Promise.all([

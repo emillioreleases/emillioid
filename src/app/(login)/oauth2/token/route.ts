@@ -223,6 +223,7 @@ export async function POST(req: NextRequest) {
     db.query.account.findFirst({
       columns: {
         providerId: true,
+        accountId: true,
       },
       where(fields, operators) {
         return operators.eq(fields.userId, oauth2Session.user_id);
@@ -271,10 +272,16 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const userData = await fetchUser(oauth2Session.user_id, account.providerId, {
-    discord_direct: clientConfig.with_discord_direct,
-    no_staff: clientConfig.with_no_staff,
-  });
+  const userData = await fetchUser(
+    account.providerId == "microsoft"
+      ? oauth2Session.user_id
+      : account.accountId,
+    account.providerId,
+    {
+      discord_direct: clientConfig.with_discord_direct,
+      no_staff: clientConfig.with_no_staff,
+    },
+  );
   if (typeof userData === "string") {
     return NextResponse.json(
       {
