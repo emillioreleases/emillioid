@@ -322,7 +322,7 @@ export async function POST(req: NextRequest) {
             },
           })
           .then((res) => res!.private_key),
-        "RS256",
+        clientConfig.jwtSigningAlgorithm,
       ),
     );
 
