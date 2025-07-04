@@ -338,7 +338,6 @@ export default function SigningIn({
           currentPrompt !== "loginError"
         ) {
           void loginCapable.refetch().then((res) => {
-            console.log(res.data);
             if (res.data?.verdict) {
               if (res.data.message === "with_discord_direct" && !accountToUse) {
                 setCurrentPrompt("profile_select");

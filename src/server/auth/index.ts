@@ -28,8 +28,8 @@ async function getAccessToken() {
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: new URLSearchParams({
-          client_id: "759edeb2-774d-48e1-a4d6-4fccd621ba0a",
-          client_secret: "Nfr8Q~hU3SDTtd.w7wEN680df_~GDiC5R4~PlbBQ",
+          client_id: env.AF_ID,
+          client_secret: env.AF_SECRET,
           grant_type: "client_credentials",
           scope: "https://graph.microsoft.com/.default",
         }),
@@ -94,6 +94,7 @@ export const auth = betterAuth({
       tenantId: env.AUTH_MICROSOFT_TENANT_ID,
       overrideUserInfoOnSignIn: true,
       async getUserInfo(accessToken) {
+        const at = await getAccessToken();
         const [userFetch, attributeFetch, groupsFetch] = await Promise.all([
           fetch(
             "https://graph.microsoft.com/v1.0/me?$select=id,mail,displayName,givenName,surName",
@@ -101,7 +102,7 @@ export const auth = betterAuth({
           ),
           fetch(
             `https://graph.microsoft.com/v1.0/users/${decodeJwt(accessToken.idToken!).oid as string}?$select=customSecurityAttributes`,
-            { headers: { Authorization: `Bearer ${await getAccessToken()}` } },
+            { headers: { Authorization: `Bearer ${at}` } },
           ),
           fetch(
             "https://graph.microsoft.com/v1.0/me/memberOf/microsoft.graph.group?$select=displayName",
