@@ -95,18 +95,19 @@ export const auth = betterAuth({
       overrideUserInfoOnSignIn: true,
       async getUserInfo(accessToken) {
         const at = await getAccessToken();
+        const idToken = decodeJwt(accessToken.idToken!);
         const [userFetch, attributeFetch, groupsFetch] = await Promise.all([
           fetch(
             "https://graph.microsoft.com/v1.0/me?$select=id,mail,displayName,givenName,surName",
             { headers: { Authorization: `Bearer ${accessToken.accessToken}` } },
           ),
           fetch(
-            `https://graph.microsoft.com/v1.0/users/${decodeJwt(accessToken.idToken!).oid as string}?$select=customSecurityAttributes`,
+            `https://graph.microsoft.com/v1.0/users/${idToken.oid as string}?$select=customSecurityAttributes`,
             { headers: { Authorization: `Bearer ${at}` } },
           ),
           fetch(
-            "https://graph.microsoft.com/v1.0/me/memberOf/microsoft.graph.group?$select=displayName",
-            { headers: { Authorization: `Bearer ${accessToken.accessToken}` } },
+            `https://graph.microsoft.com/v1.0/users/${idToken.oid as string}/memberOf/microsoft.graph.group?$select=displayName`,
+            { headers: { Authorization: `Bearer ${at}` } },
           ),
         ]);
         const [user, attributes, groups] = (await Promise.all([
