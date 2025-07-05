@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { eq } from "drizzle-orm";
 import { base64url, CompactEncrypt, importJWK, SignJWT } from "jose";
 import { z } from "zod";
@@ -91,7 +92,12 @@ export const loginRouter = createTRPCRouter({
   }),
 
   loginUser: protectedProcedure
-    .input(z.object({ loginChallenge: z.string(), forceRobloxAccount: z.boolean().optional() }))
+    .input(
+      z.object({
+        loginChallenge: z.string(),
+        forceRobloxAccount: z.boolean().optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       const allowed = await canLogin(ctx, input.loginChallenge);
       if (!allowed.verdict) {
@@ -108,8 +114,10 @@ export const loginRouter = createTRPCRouter({
         throw new Error("Invalid login");
       }
 
-
-      if (allowed.message === "with_discord_direct" && typeof input.forceRobloxAccount !== "boolean") {
+      if (
+        allowed.message === "with_discord_direct" &&
+        typeof input.forceRobloxAccount !== "boolean"
+      ) {
         throw new Error("Invalid login");
       }
 
@@ -152,7 +160,10 @@ export const loginRouter = createTRPCRouter({
           token_type: "Bearer",
           created_at: new Date(),
           updated_at: new Date(),
-          force_roblox_account: allowed.message !== "with_discord_direct" ? false : input.forceRobloxAccount,
+          force_roblox_account:
+            allowed.message !== "with_discord_direct"
+              ? false
+              : input.forceRobloxAccount,
         }),
         ctx.db
           .delete(oauth2LoginAttempt)
@@ -225,10 +236,14 @@ export const loginRouter = createTRPCRouter({
             }
             const jwt = await new SignJWT({
               sid: session.session_id,
+              events: {
+                "http://schemas.openid.net/event/backchannel-logout": {},
+              },
             })
               .setIssuedAt()
               .setAudience(client.id)
               .setSubject(yes.subject)
+              .setJti(randomUUID())
               .setIssuer("https://accounts.bloxvalschools.com")
               .setExpirationTime("30s")
               .sign(jwtKey);

@@ -57,6 +57,27 @@
       "when": 1750650012693,
       "tag": "0007_living_radioactive_man",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1751686800124,
+      "tag": "0008_amusing_ozymandias",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1751686854042,
+      "tag": "0009_natural_king_cobra",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1751687621444,
+      "tag": "0010_cute_ricochet",
+      "breakpoints": true
     }
   ]
 }

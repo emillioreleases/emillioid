@@ -40,6 +40,8 @@ export default async function SignIn({
       },
     });
 
+    if (!yes) return <div>Flow is invalid.</div>;
+
     [client, prompt] = await Promise.all([
       api.oauth2.getClientDetails(sp.flow),
       api.oauth2.getStage(sp.flow),
@@ -68,7 +70,12 @@ export default async function SignIn({
               </div>
             );
           case "NO_ROBLOX_ACCOUNT":
-            return <RobloxLink clientName={client.name ?? "My Apps"} challenge={login_challenge} />;
+            return (
+              <RobloxLink
+                clientName={client.name ?? "My Apps"}
+                challenge={login_challenge}
+              />
+            );
         }
       } else {
         return (
@@ -100,7 +107,12 @@ export default async function SignIn({
             </div>
           );
         case "NO_ROBLOX_ACCOUNT":
-          return <RobloxLink clientName={client?.name ?? "My Apps"} challenge={sp.flow!} />;
+          return (
+            <RobloxLink
+              clientName={client?.name ?? "My Apps"}
+              challenge={sp.flow!}
+            />
+          );
       }
     } else {
     }
@@ -139,4 +151,4 @@ export default async function SignIn({
       <SSOButtons />
     </LoginTemplate>
   );
-};
+}

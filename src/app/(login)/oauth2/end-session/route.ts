@@ -2,13 +2,16 @@ import { redirect } from "next/navigation";
 import type { NextRequest } from "next/server";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
+import { api } from "~/trpc/server";
 
 export async function GET(req: NextRequest) {
   const session = await auth.api.getSession({
     headers: req.headers,
   });
   const client_id = req.nextUrl.searchParams.get("client_id");
-  const post_logout_redirect_uri = req.nextUrl.searchParams.get("post_logout_redirect_uri");
+  const post_logout_redirect_uri = req.nextUrl.searchParams.get(
+    "post_logout_redirect_uri",
+  );
 
   if (!client_id || !post_logout_redirect_uri) {
     return new Response("Bad request", { status: 400 });
@@ -35,5 +38,6 @@ export async function GET(req: NextRequest) {
     redirect(post_logout_redirect_uri);
   }
 
-  return new Response("OK", { status: 200 });
+  await api.login.signOut();
+  redirect(post_logout_redirect_uri);
 }

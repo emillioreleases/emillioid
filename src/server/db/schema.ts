@@ -210,6 +210,28 @@ export const oauth2LoginAttempt = createTable(
   (t) => [uniqueIndex("id_unique").on(t.id)],
 );
 
+export const oauth2LogoutSession = createTable(
+  "oauth2_logout_session",
+  (d) => ({
+    id: d
+      .text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    client_id: d
+      .text("client_id")
+      .notNull()
+      .references(() => oauth2Client.id, { onDelete: "cascade" }),
+    user_id: d
+      .text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    post_logout_redirect_uri: d.text("post_logout_redirect_uri").notNull(),
+    created_at: d.integer("created_at", { mode: "timestamp" }).notNull(),
+    updated_at: d.integer("updated_at", { mode: "timestamp" }).notNull(),
+  }),
+  (t) => [uniqueIndex("logout_id_unique").on(t.id)],
+);
+
 export const oauth2LoginSession = createTable(
   "oauth2_login_session",
   (d) => ({
