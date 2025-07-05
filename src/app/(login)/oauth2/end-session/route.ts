@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     return new Response("Bad request", { status: 400 });
   }
 
-  if (!session) {
+  if (!session?.user) {
     redirect(post_logout_redirect_uri);
   }
 
