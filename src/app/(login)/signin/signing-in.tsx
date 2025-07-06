@@ -71,7 +71,13 @@ export default function SigningIn({
       void login
         .mutateAsync({
           loginChallenge,
-          forceRobloxAccount: accountToUse === "roblox" ? true : false,
+          forceRobloxAccount: session.data?.user.email.endsWith(
+            "@bloxvalschools.com",
+          )
+            ? accountToUse === "roblox"
+              ? true
+              : false
+            : false,
         })
         .then((res) => userRedirect(res))
         .catch((e: { message: string }) => {
@@ -86,6 +92,7 @@ export default function SigningIn({
     loginChallenge,
     processed,
     router,
+    session.data,
   ]);
 
   useEffect(() => {

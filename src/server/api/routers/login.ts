@@ -1,8 +1,6 @@
-import { randomUUID } from "crypto";
-import { eq } from "drizzle-orm";
-import { base64url, CompactEncrypt, importJWK, SignJWT } from "jose";
+import { eq, or } from "drizzle-orm";
+import { base64url, CompactEncrypt, SignJWT } from "jose";
 import { z } from "zod";
-import fetchUser from "~/app/(login)/consent/fetch-user";
 import { env } from "~/env";
 
 import {
@@ -11,7 +9,9 @@ import {
   publicProcedure,
   type Context,
 } from "~/server/api/trpc";
+import { auth } from "~/server/auth";
 import { oauth2LoginAttempt, oauth2LoginSession } from "~/server/db/schema";
+import { signOutApp } from "~/utils/signout-app";
 
 export const canLogin = async (ctx: Context, input?: string) => {
   if (!ctx.session?.user)
@@ -182,11 +182,32 @@ export const loginRouter = createTRPCRouter({
     ctx.headers.set("Set-Cookie", "bcps.auth.prompt-bypass=true; HttpOnly");
   }),
   signOut: protectedProcedure.mutation(async ({ ctx }) => {
+    const [session, ms] = await Promise.all([
+      auth.api.getSession({
+        headers: ctx.headers,
+      }),
+      auth.api.listDeviceSessions({
+        headers: ctx.headers,
+      }),
+    ]);
+
+    const sessions = [
+      session!,
+      ...ms.filter((ms) => ms.session.id !== session!.session.id),
+    ];
+
+    console.log(sessions);
+
     const oauth2Sessions = await ctx.db.query.oauth2LoginSession.findMany({
       where(fields, operators) {
-        return operators.eq(fields.session_id, ctx.session.session.id);
+        return operators.or(
+          ...sessions.map((session) =>
+            operators.eq(fields.session_id, session.session.id),
+          ),
+        );
       },
     });
+
     const oauth2Clients = await ctx.db.query.oauth2Client.findMany({
       columns: {
         id: true,
@@ -202,58 +223,33 @@ export const loginRouter = createTRPCRouter({
       },
     });
 
-    try {
-      await Promise.all(
-        oauth2Sessions.map(async (session) => {
-          const client = oauth2Clients.find((c) => c.id === session.client_id);
-          if (client?.backchannelLogoutUri) {
-            const [key, account] = await ctx.db.batch([
-              ctx.db.query.oauth2Keys.findFirst({
-                columns: {
-                  alg: true,
-                  private_key: true,
-                },
-                where(fields, operators) {
-                  return operators.eq(fields.alg, client.jwtSigningAlgorithm);
-                },
-              }),
-              ctx.db.query.account.findFirst({
-                columns: {
-                  providerId: true,
-                },
-                where(fields, operators) {
-                  return operators.eq(fields.userId, session.user_id);
-                },
-              }),
-            ]);
-            const jwtKey = await importJWK(key!.private_key, key?.alg);
-            const yes = await fetchUser(session.user_id, account!.providerId, {
-              discord_direct: client.with_discord_direct,
-              no_staff: client.with_no_staff,
-            });
-            if (typeof yes === "string") {
-              return;
-            }
-            const jwt = await new SignJWT({
-              sid: session.session_id,
-              events: {
-                "http://schemas.openid.net/event/backchannel-logout": {},
-              },
-            })
-              .setIssuedAt()
-              .setAudience(client.id)
-              .setSubject(yes.subject)
-              .setJti(randomUUID())
-              .setIssuer("https://accounts.bloxvalschools.com")
-              .setExpirationTime("30s")
-              .sign(jwtKey);
-            return fetch(client.backchannelLogoutUri, {
-              body: jwt,
-              method: "POST",
-            });
-          }
-        }),
+    await ctx.db
+      .delete(oauth2LoginSession)
+      .where(
+        or(
+          ...oauth2Sessions.map((loginSession) =>
+            eq(oauth2LoginSession.id, loginSession.id),
+          ),
+        ),
       );
-    } catch {}
+
+    await Promise.all(
+      sessions.map(async () => {
+        try {
+          await Promise.all(
+            oauth2Sessions.map((session) =>
+              signOutApp(
+                session,
+                oauth2Clients.find((c) => c.id === session.client_id),
+              ),
+            ),
+          );
+        } catch {}
+      }),
+    );
+
+    return await auth.api.signOut({
+      headers: ctx.headers,
+    });
   }),
 });

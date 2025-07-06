@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import type { NextRequest } from "next/server";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
+import { oauth2LogoutSession } from "~/server/db/schema";
 import { api } from "~/trpc/server";
 
 export async function GET(req: NextRequest) {
@@ -40,4 +41,20 @@ export async function GET(req: NextRequest) {
 
   await api.login.signOut();
   redirect(post_logout_redirect_uri);
+
+  // db.insert(oauth2LogoutSession)
+  //   .values({
+  //     user_id: session.user.id,
+  //     client_id: client_id,
+  //     created_at: new Date(),
+  //     updated_at: new Date(),
+  //     post_logout_redirect_uri: post_logout_redirect_uri,
+  //   })
+  //   .returning()
+  //   .then((result) => {
+  //     redirect(`/signout?flow=${result[0]!.id}`);
+  //   })
+  //   .catch((error) => {
+  //     console.error(error);
+  //   });
 }

@@ -221,10 +221,7 @@ export const oauth2LogoutSession = createTable(
       .text("client_id")
       .notNull()
       .references(() => oauth2Client.id, { onDelete: "cascade" }),
-    user_id: d
-      .text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+    user_id: d.text("user_id").references(() => user.id),
     post_logout_redirect_uri: d.text("post_logout_redirect_uri").notNull(),
     created_at: d.integer("created_at", { mode: "timestamp" }).notNull(),
     updated_at: d.integer("updated_at", { mode: "timestamp" }).notNull(),
