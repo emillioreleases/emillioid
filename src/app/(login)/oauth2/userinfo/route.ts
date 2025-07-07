@@ -43,7 +43,9 @@ export async function GET(req: NextRequest) {
   const base64urlData = base64url.decode(token);
   let jwt;
   try {
-    const encryptSecret = new TextEncoder().encode(env.OAUTH2_TOKEN_ENCRYPT_KEY);
+    const encryptSecret = new TextEncoder().encode(
+      env.OAUTH2_TOKEN_ENCRYPT_KEY,
+    );
     const signSecret = new TextEncoder().encode(env.OAUTH2_TOKEN_SIGN_KEY);
     const decryptedJWT = await compactDecrypt(base64urlData, encryptSecret);
     jwt = await jwtVerify(decryptedJWT.plaintext, signSecret);
@@ -83,13 +85,13 @@ export async function GET(req: NextRequest) {
     columns: {
       client_id: true,
       user_id: true,
-      force_roblox_account: true
+      force_roblox_account: true,
     },
     where(fields, operators) {
       return operators.and(
         operators.eq(fields.access_token, jwtData.data?.tid),
         operators.isNotNull(fields.access_token),
-        operators.eq(fields.client_id, jwtData.data.aud)
+        operators.eq(fields.client_id, jwtData.data.aud),
       );
     },
   });
@@ -146,7 +148,10 @@ export async function GET(req: NextRequest) {
     account.providerId === "microsoft" ? user.id : account.accountId,
     account.providerId,
     {
-      discord_direct: oauth2Session.force_roblox_account ? false : client.with_discord_direct,
+      discord_direct:
+        oauth2Session.force_roblox_account || account.providerId === "microsoft"
+          ? false
+          : client.with_discord_direct,
       no_staff: client.with_no_staff,
     },
   );
@@ -161,19 +166,22 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  return NextResponse.json({
-    sub: userData.subject,
-    name: userData.name,
-    given_name: userData.name.split(" ")[0],
-    family_name: userData.name.split(" ")[1],
-    preferred_username: userData.preferred_username,
-    picture: userData.picture,
-    email: userData.email,
-    email_verified: true,
-    groups: userData.groups,
-  }, {
-    headers: {
-      "Content-Type": "application/json",
-    }
-  });
+  return NextResponse.json(
+    {
+      sub: userData.subject,
+      name: userData.name,
+      given_name: userData.name.split(" ")[0],
+      family_name: userData.name.split(" ")[1],
+      preferred_username: userData.preferred_username,
+      picture: userData.picture,
+      email: userData.email,
+      email_verified: true,
+      groups: userData.groups,
+    },
+    {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    },
+  );
 }

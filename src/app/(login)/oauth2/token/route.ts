@@ -188,6 +188,7 @@ export async function POST(req: NextRequest) {
       session_id: true,
       client_id: true,
       user_id: true,
+      force_roblox_account: true,
     },
     where(fields, operators) {
       return jwtData.data.tt === "authorization_code"
@@ -279,7 +280,10 @@ export async function POST(req: NextRequest) {
       : account.accountId,
     account.providerId,
     {
-      discord_direct: clientConfig.with_discord_direct,
+      discord_direct:
+        oauth2Session.force_roblox_account || account.providerId === "microsoft"
+          ? false
+          : clientConfig.with_discord_direct,
       no_staff: clientConfig.with_no_staff,
     },
   );
