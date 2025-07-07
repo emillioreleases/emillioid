@@ -365,6 +365,7 @@ export default function SigningIn({
   } else {
     if (
       currentPrompt !== "finished" &&
+      currentPrompt !== "select_account" &&
       currentPrompt !== "profile_select" &&
       currentPrompt !== "loginError"
     ) {
