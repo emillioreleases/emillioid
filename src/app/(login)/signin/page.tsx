@@ -102,10 +102,12 @@ export default async function SignIn({
       switch (canLogin.message) {
         case "NO_STAFF":
           return (
-            <div>
-              You cannot use your employee credentials to login to this site.
-              Please log out and try again.
-            </div>
+            <LoginTemplate
+              title={"Login Not Allowed"}
+              description={
+                "You cannot use your employee credentials to login to this site. Please log out and try again."
+              }
+            />
           );
         case "NO_ROBLOX_ACCOUNT":
           return (
