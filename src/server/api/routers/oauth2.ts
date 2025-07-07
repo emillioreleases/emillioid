@@ -43,10 +43,6 @@ export const oauth2Router = createTRPCRouter({
       canLogin(ctx, input),
     ]);
 
-    if (!allowed.verdict) {
-      return "no_access";
-    }
-
     if (client?.consentNeeded && !consent) {
       return "consent";
     }
@@ -62,26 +58,28 @@ export const oauth2Router = createTRPCRouter({
         return "continue";
     }
   }),
-  getClientDetails: publicProcedure.input(z.string()).query(async ({ ctx, input }) => {
-    const request = await ctx.db.query.oauth2LoginAttempt.findFirst({
-      where(fields, operators) {
-        return operators.eq(fields.id, input);
-      },
-    });
+  getClientDetails: publicProcedure
+    .input(z.string())
+    .query(async ({ ctx, input }) => {
+      const request = await ctx.db.query.oauth2LoginAttempt.findFirst({
+        where(fields, operators) {
+          return operators.eq(fields.id, input);
+        },
+      });
 
-    if (!request) {
-      throw new TRPCError({ code: "BAD_REQUEST", message: "No request" });
-    }
+      if (!request) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "No request" });
+      }
 
-    return await ctx.db.query.oauth2Client.findFirst({
-      columns: {
-        name: true,
-        with_discord_direct: true,
-        with_no_staff: true,
-      },
-      where(fields, operators) {
-        return operators.eq(fields.id, request.client_id);
-      },
-    });
-  })
+      return await ctx.db.query.oauth2Client.findFirst({
+        columns: {
+          name: true,
+          with_discord_direct: true,
+          with_no_staff: true,
+        },
+        where(fields, operators) {
+          return operators.eq(fields.id, request.client_id);
+        },
+      });
+    }),
 });
