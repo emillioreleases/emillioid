@@ -8,6 +8,7 @@ import { api } from "~/trpc/server";
 import SigningIn from "./signing-in";
 import LoginTemplate from "./login-template";
 import { db } from "~/server/db";
+import { InvalidFlow } from "~/app/_components/invalid-flow";
 
 export default async function SignIn({
   searchParams,
@@ -40,7 +41,7 @@ export default async function SignIn({
       },
     });
 
-    if (!yes) return <div>Flow is invalid.</div>;
+    if (!yes) return <InvalidFlow />;
 
     [client, prompt] = await Promise.all([
       api.oauth2.getClientDetails(sp.flow),

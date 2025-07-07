@@ -1,4 +1,4 @@
-import { eq, or } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { base64url, CompactEncrypt, SignJWT } from "jose";
 import { z } from "zod";
 import { env } from "~/env";
@@ -114,6 +114,23 @@ export const loginRouter = createTRPCRouter({
         throw new Error("Invalid login");
       }
 
+      const client = await ctx.db.query.oauth2Client.findFirst({
+        columns: {
+          id: true,
+          backchannelLogoutUri: true,
+          jwtSigningAlgorithm: true,
+          with_discord_direct: true,
+          with_no_staff: true,
+        },
+        where(fields, operators) {
+          return operators.eq(fields.id, request.client_id);
+        },
+      });
+
+      if (!client) {
+        throw new Error("Invalid login");
+      }
+
       if (
         allowed.message === "with_discord_direct" &&
         typeof input.forceRobloxAccount !== "boolean"
@@ -144,6 +161,20 @@ export const loginRouter = createTRPCRouter({
       )
         .setProtectedHeader({ alg: "dir", enc: "A256CBC-HS512" })
         .encrypt(encryptSecret);
+
+      const deleteExistingSessions = await ctx.db
+        .delete(oauth2LoginSession)
+        .where(
+          and(
+            eq(oauth2LoginSession.session_id, ctx.session.session.id),
+            eq(oauth2LoginSession.client_id, request.client_id),
+          ),
+        )
+        .returning();
+
+      await Promise.all(
+        deleteExistingSessions.map((session) => signOutApp(session, client)),
+      );
 
       await ctx.db.batch([
         ctx.db.insert(oauth2LoginSession).values({

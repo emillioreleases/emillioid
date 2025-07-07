@@ -46,14 +46,9 @@ export async function signOutApp(
       },
     );
 
-    console.log(yes);
-
     if (typeof yes == "string") {
-      console.log("fail");
       return;
     }
-
-    console.log("making jwt");
 
     const newJwt = await new SignJWT({
       sid: session.session_id,
@@ -73,16 +68,12 @@ export async function signOutApp(
     const formData = new URLSearchParams();
     formData.append("logout_token", newJwt);
 
-    console.log(newJwt);
-    console.log("jwt done");
-    const fetchTest = await fetch(client.backchannelLogoutUri, {
+    await fetch(client.backchannelLogoutUri, {
       body: formData,
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       method: "POST",
     });
-
-    console.log(await fetchTest.text());
   }
 }

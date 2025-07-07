@@ -41,6 +41,12 @@ async function getAccessToken() {
 }
 
 export const auth = betterAuth({
+  advanced: {
+    ipAddress: {
+      ipAddressHeaders: ["cf-connecting-ip", "x-forwarded-for"],
+      disableIpTracking: false,
+    },
+  },
   database: drizzleAdapter(db, {
     provider: "sqlite", // or "mysql", "sqlite"
   }),
