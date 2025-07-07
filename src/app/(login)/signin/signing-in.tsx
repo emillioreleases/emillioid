@@ -122,33 +122,34 @@ export default function SigningIn({
     }
     switch (currentPrompt) {
       case "login":
-        void authClient.signOut().then(() => {
-          return (
-            <LoginTemplate
-              title={"Welcome!"}
-              description={
-                <>
-                  {"Please login to continue to "}
-                  <span className="font-bold">{clientName ?? "My Apps"}</span>
-                </>
-              }
-              havePtLinks
-            >
-              {error ? (
-                <Alert variant="destructive">
-                  <AlertCircleIcon />
-                  <AlertTitle>
-                    Something went wrong during authentication!
-                  </AlertTitle>
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              ) : (
-                <></>
-              )}
-              <SSOButtons withBypassRedirect />
-            </LoginTemplate>
-          );
-        });
+        if (session && sessionsData?.length === 0) {
+          void authClient.signOut();
+        }
+        return (
+          <LoginTemplate
+            title={"Welcome!"}
+            description={
+              <>
+                {"Please login to continue to "}
+                <span className="font-bold">{clientName ?? "My Apps"}</span>
+              </>
+            }
+            havePtLinks
+          >
+            {error ? (
+              <Alert variant="destructive">
+                <AlertCircleIcon />
+                <AlertTitle>
+                  Something went wrong during authentication!
+                </AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            ) : (
+              <></>
+            )}
+            <SSOButtons withBypassRedirect />
+          </LoginTemplate>
+        );
       case "select_account":
         return (
           <LoginTemplate
