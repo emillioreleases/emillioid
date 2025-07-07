@@ -71,7 +71,7 @@ export default function SigningIn({
       void login
         .mutateAsync({
           loginChallenge,
-          forceRobloxAccount: session.data?.user.email.endsWith(
+          forceRobloxAccount: !session.data?.user.email.endsWith(
             "@bloxvalschools.com",
           )
             ? accountToUse === "roblox"
