@@ -98,7 +98,7 @@ export default async function SignIn({
     }
   }
   if (session?.user) {
-    if (!canLogin.verdict) {
+    if (!canLogin.verdict && !prompt) {
       switch (canLogin.message) {
         case "NO_STAFF":
           return (
