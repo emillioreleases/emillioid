@@ -261,6 +261,9 @@ export default function SigningIn({
         if (session.isPending) {
           return <div>Loading...</div>;
         }
+        if (!buttonsEnabled) {
+          setButtonsEnabled(true);
+        }
         if (
           !accountToUse &&
           !session.data?.user.email.endsWith("@students.bloxvalschools.com") &&
