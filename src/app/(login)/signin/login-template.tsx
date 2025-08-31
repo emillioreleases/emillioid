@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { HomeVideoBold } from "~/app/fonts";
 
 export default function LoginTemplate({
   title,
@@ -16,7 +17,9 @@ export default function LoginTemplate({
   return (
     <>
       <header className="justify-left mx-[-1rem] mt-[-1.5rem] mb-[-1.5rem] flex min-w-full items-stretch space-x-2 p-4">
-        <Image src={"/logo.png"} alt={"Logo"} width={100} height={75} />
+        <div>
+          <Image src={"/logo.png"} alt={"Logo"} width={200} height={200} />
+        </div>
         {partnerLogo && (
           <>
             <div className="h-auto w-[0.1px] border-[0.05px] border-white" />
@@ -27,7 +30,13 @@ export default function LoginTemplate({
       </header>
       <main className="justify-left mb-12 flex w-full flex-col items-center space-y-4 sm:mb-5 sm:h-fit">
         <div className="flex w-full flex-col items-start justify-center">
-          <h1 className="text-2xl font-bold text-white">{title}</h1>
+          <h1
+            className={
+              HomeVideoBold.className + " text-3xl font-bold text-white"
+            }
+          >
+            {title}
+          </h1>
           <h5 className="text-sm text-gray-400">{description}</h5>
         </div>
         {children}

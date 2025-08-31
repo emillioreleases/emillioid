@@ -1,7 +1,6 @@
 import z from "zod";
 import { createTRPCRouter, publicProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
-import { canLogin } from "./login";
 
 export const oauth2Router = createTRPCRouter({
   getStage: publicProcedure.input(z.string()).query(async ({ ctx, input }) => {
@@ -19,28 +18,25 @@ export const oauth2Router = createTRPCRouter({
       return "login";
     }
 
-    const [[client, consent], allowed] = await Promise.all([
-      ctx.db.batch([
-        ctx.db.query.oauth2Client.findFirst({
-          columns: {
-            with_discord_direct: true,
-            with_no_staff: true,
-            consentNeeded: true,
-          },
-          where(fields, operators) {
-            return operators.eq(fields.id, request.client_id);
-          },
-        }),
-        ctx.db.query.oauth2Consent.findFirst({
-          where(fields, operators) {
-            return operators.and(
-              operators.eq(fields.client_id, request.client_id),
-              operators.eq(fields.user_id, ctx.session!.user.id),
-            );
-          },
-        }),
-      ]),
-      canLogin(ctx, input),
+    const [client, consent] = await ctx.db.batch([
+      ctx.db.query.oauth2Client.findFirst({
+        columns: {
+          with_discord_direct: true,
+          with_no_staff: true,
+          consentNeeded: true,
+        },
+        where(fields, operators) {
+          return operators.eq(fields.id, request.client_id);
+        },
+      }),
+      ctx.db.query.oauth2Consent.findFirst({
+        where(fields, operators) {
+          return operators.and(
+            operators.eq(fields.client_id, request.client_id),
+            operators.eq(fields.user_id, ctx.session!.user.id),
+          );
+        },
+      }),
     ]);
 
     if (client?.consentNeeded && !consent) {
