@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import RobloxLink from "./roblox-link";
 import Image from "next/image";
+import { W95Font, W95FontBold } from "~/app/fonts";
 
 export default function SigningIn({
   login_challenge,
@@ -174,10 +175,9 @@ export default function SigningIn({
             <div className="flex w-full flex-col items-center justify-center space-y-2">
               {sessionsData && !loading ? (
                 sessionsData.map((s) => (
-                  <Button
-                    variant={"outline"}
+                  <button
                     key={s.session.id}
-                    className="flex h-fit w-full items-center justify-start !space-x-1 p-3 text-left"
+                    className="flex w-full border-t-2 border-r-2 border-b-2 border-l-2 border-t-white border-r-black border-b-black border-l-white bg-[#c3c3c3] active:border-t-4 active:border-t-black active:border-r-white active:border-b-white active:border-l-black"
                     onClick={async (e) => {
                       e.preventDefault();
                       setButtonsEnabled(false);
@@ -205,36 +205,50 @@ export default function SigningIn({
                     }}
                     disabled={!buttonsEnabled}
                   >
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={s.user.image!} alt={s.user.name} />
-                      <AvatarFallback>
-                        <UserIcon />
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex flex-col items-start justify-start">
-                      <span className="font-bold">{s.user.name}</span>
-                      <span className="text-sm text-gray-400">
-                        {s.user.email}
-                      </span>
+                    <div
+                      className={
+                        "flex h-full w-full items-center justify-start space-x-2 border-r-2 border-b-2 border-r-[#838381] border-b-[#838381] p-3 text-black " +
+                        W95Font.className
+                      }
+                    >
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={s.user.image!} alt={s.user.name} />
+                        <AvatarFallback>
+                          <UserIcon />
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col items-start justify-start">
+                        <span className={"font-bold"}>{s.user.name}</span>
+                        <span className="text-sm text-gray-600">
+                          {s.user.email}
+                        </span>
+                      </div>
                     </div>
-                  </Button>
+                  </button>
                 ))
               ) : (
                 <div className="flex w-full flex-col items-center justify-center space-y-2">
                   Loading
                 </div>
               )}
-              <Button
+
+              <button
+                className="flex w-full border-t-2 border-r-2 border-b-2 border-l-2 border-t-white border-r-black border-b-black border-l-white bg-[#c3c3c3] active:border-t-4 active:border-t-black active:border-r-white active:border-b-white active:border-l-black"
                 onClick={() => {
                   setButtonsEnabled(false);
                   setCurrentPrompt("login");
                 }}
                 disabled={!buttonsEnabled}
-                variant="default"
-                className="flex w-full"
               >
-                Login with another account
-              </Button>
+                <div
+                  className={
+                    "flex h-full w-full items-center justify-center space-x-2 border-r-2 border-b-2 border-r-[#838381] border-b-[#838381] p-1 text-black " +
+                    W95Font.className
+                  }
+                >
+                  Login with another account
+                </div>
+              </button>
             </div>
           </LoginTemplate>
         );

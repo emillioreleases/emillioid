@@ -1,5 +1,6 @@
+import { Heart } from "lucide-react";
 import Image from "next/image";
-import { HomeVideoBold } from "~/app/fonts";
+import { HomeVideoBold, W95Font } from "~/app/fonts";
 
 export default function LoginTemplate({
   title,
@@ -30,25 +31,32 @@ export default function LoginTemplate({
       </header>
       <main className="justify-left mb-12 flex w-full flex-col items-center space-y-4 sm:mb-5 sm:h-fit">
         <div className="flex w-full flex-col items-start justify-center">
-          <h1
+          <span
             className={
-              HomeVideoBold.className + " text-3xl font-bold text-white"
+              HomeVideoBold.className +
+              " my-1 inline text-3xl leading-6 font-bold text-black"
             }
           >
             {title}
-          </h1>
-          <h5 className="text-sm text-gray-400">{description}</h5>
+          </span>
+          <h5 className={"text-md text-black " + W95Font.className}>
+            {description}
+          </h5>
         </div>
         {children}
         {havePtLinks && (
-          <div className="flex items-stretch justify-center space-x-2 text-sm text-gray-400">
+          <div className="flex items-stretch justify-center space-x-2 text-sm text-black">
             <a href="https://www.bloxvalschools.com/page/privacy-policy">
               Privacy Policy
             </a>
-            <div className="w-[1px] border-[0.5px]" />
+            <div className="w-[1px] border-[0.5px] border-gray-800" />
             <a href="https://www.bloxvalschools.com/page/tos">Terms of Use</a>
           </div>
         )}
+        <span className="flex text-xs text-black">
+          Created with <Heart className="mx-1 h-4 w-4 text-red-700" /> by Team
+          Emillio.
+        </span>
       </main>
     </>
   );

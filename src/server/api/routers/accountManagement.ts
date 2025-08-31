@@ -7,7 +7,7 @@ import { oauth2LoginAttempt, user } from "~/server/db/schema";
 
 export const accountManagementRouter = createTRPCRouter({
   linkAccountViaBloxlink: protectedProcedure
-    .input(z.string())
+    .input(z.string().optional())
     .mutation(async ({ ctx, input }) => {
       const account = await ctx.db.query.account.findFirst({
         columns: {
@@ -25,12 +25,13 @@ export const accountManagementRouter = createTRPCRouter({
         });
       }
 
-      await ctx.db
-        .update(oauth2LoginAttempt)
-        .set({
-          promptBypass: true,
-        })
-        .where(eq(oauth2LoginAttempt.id, input));
+      if (input)
+        await ctx.db
+          .update(oauth2LoginAttempt)
+          .set({
+            promptBypass: true,
+          })
+          .where(eq(oauth2LoginAttempt.id, input));
 
       try {
         const bloxlinkFetch = await fetch(
