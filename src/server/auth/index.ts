@@ -81,7 +81,7 @@ export const auth = betterAuth({
         return {
           user: {
             id: oidcData.sub,
-            email: oidcData.sub + "@students.bloxvalschools.com",
+            email: oidcData.sub + "@accounts.emillio.dev",
             name: oidcData.nickname + " (@" + oidcData.preferred_username + ")",
             image: oidcData.picture,
             groups: JSON.stringify([]),
@@ -187,7 +187,7 @@ export const auth = betterAuth({
     user: {
       create: {
         after: async (u) => {
-          if (u.email.endsWith("@students.bloxvalschools.com")) {
+          if (u.email.endsWith("@accounts.emillio.dev")) {
             await db
               .update(user)
               .set({
@@ -200,7 +200,7 @@ export const auth = betterAuth({
       },
       update: {
         after: async (u) => {
-          if (u.email.endsWith("@students.bloxvalschools.com")) {
+          if (u.email.endsWith("@accounts.emillio.dev")) {
           }
         },
       },

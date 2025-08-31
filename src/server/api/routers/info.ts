@@ -32,7 +32,7 @@ export const infoRouter = createTRPCRouter({
         return {
           name: `${userData.displayName} (@${userData.name})`,
           image: avatar.data[0]!.imageUrl,
-          email: `${userData.id}@students.bloxvalschools.com`,
+          email: `${userData.id}@accounts.emillio.dev`,
         }
       } else {
         throw new TRPCError({ code: "UNAUTHORIZED" });

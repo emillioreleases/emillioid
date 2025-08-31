@@ -56,7 +56,7 @@ export default async function fetchUser(
       user = {
         subject: `roblox|${userId}`,
         method: context.login_method,
-        email: `${userData1.id}@students.bloxvalschools.com`,
+        email: `${userData1.id}@accounts.emillio.dev`,
         name: `${userData1.displayName} (@${userData1.name})`,
         preferred_username: userData1.name,
         picture: avatar.data[0]!.imageUrl,
@@ -128,7 +128,7 @@ export default async function fetchUser(
         user = {
           subject: `roblox|${userDb?.connectedRobloxAccount}`,
           method: context.login_method,
-          email: `${userData.id}@students.bloxvalschools.com`,
+          email: `${userData.id}@accounts.emillio.dev`,
           name: `${userData.displayName} (@${userData.name})`,
           preferred_username: userData.name,
           picture: avatar.data[0]!.imageUrl,

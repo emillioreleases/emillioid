@@ -266,7 +266,7 @@ export default function SigningIn({
         }
         if (
           !accountToUse &&
-          !session.data?.user.email.endsWith("@students.bloxvalschools.com") &&
+          !session.data?.user.email.endsWith("@accounts.emillio.dev") &&
           (session.data?.user as { connectedRobloxAccount?: string | null })
             ?.connectedRobloxAccount
         ) {

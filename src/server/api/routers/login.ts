@@ -66,7 +66,7 @@ export const canLogin = async (ctx: Context, input?: string) => {
   if (
     !discord_direct &&
     !ctx.session.user.connectedRobloxAccount &&
-    !ctx.session.user.email.endsWith("@students.bloxvalschools.com")
+    !ctx.session.user.email.endsWith("@accounts.emillio.dev")
   ) {
     return {
       verdict: false,
