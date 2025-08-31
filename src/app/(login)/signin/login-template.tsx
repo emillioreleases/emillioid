@@ -19,7 +19,7 @@ export default function LoginTemplate({
     <>
       <header className="justify-left mx-[-1rem] mt-[-1.5rem] mb-[-1.5rem] flex min-w-full items-stretch space-x-2 p-4">
         <div>
-          <Image src={"/logo.png"} alt={"Logo"} width={200} height={200} />
+          <Image src={"/logo.png"} alt={"Logo"} width={200} height={89} />
         </div>
         {partnerLogo && (
           <>
