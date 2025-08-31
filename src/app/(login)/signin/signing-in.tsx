@@ -75,8 +75,6 @@ export default function SigningIn({
             "@bloxvalschools.com",
           )
             ? accountToUse === "roblox"
-              ? true
-              : false
             : false,
         })
         .then((res) => userRedirect(res))
