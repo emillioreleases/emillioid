@@ -14,37 +14,20 @@ export async function signOutApp(
   },
 ) {
   if (client?.backchannelLogoutUri) {
-    const [key, account] = await db.batch([
-      db.query.oauth2Keys.findFirst({
-        columns: {
-          alg: true,
-          private_key: true,
-        },
-        where(fields, operators) {
-          return operators.eq(fields.alg, client.jwtSigningAlgorithm);
-        },
-      }),
-      db.query.account.findFirst({
-        columns: {
-          providerId: true,
-          accountId: true,
-        },
-        where(fields, operators) {
-          return operators.eq(fields.userId, session.user_id);
-        },
-      }),
-    ]);
-    const jwtKey = await importJWK(key!.private_key, key?.alg);
-    const yes = await fetchUser(
-      account!.providerId === "microsoft"
-        ? session.user_id
-        : account!.accountId,
-      account!.providerId,
-      {
-        discord_direct: client.with_discord_direct,
-        no_staff: client.with_no_staff,
+    const key = await db.query.oauth2Keys.findFirst({
+      columns: {
+        alg: true,
+        private_key: true,
       },
-    );
+      where(fields, operators) {
+        return operators.eq(fields.alg, client.jwtSigningAlgorithm);
+      },
+    });
+    const jwtKey = await importJWK(key!.private_key, key?.alg);
+    const yes = await fetchUser(session.user_id, {
+      discord_direct: client.with_discord_direct,
+      no_staff: client.with_no_staff,
+    });
 
     if (typeof yes == "string") {
       return;

@@ -1,8 +1,8 @@
 import { db } from "~/server/db";
+import { cfCtx } from "~/utils/cloudflare";
 
 export default async function fetchUser(
   userId: string,
-  login_method: string,
   config: { discord_direct?: boolean; no_staff?: boolean },
 ): Promise<
   | string
@@ -20,7 +20,7 @@ export default async function fetchUser(
     config: config,
   };
   const context = {
-    login_method: login_method,
+    login_method: "",
   };
   let user: {
     method: string;
@@ -32,55 +32,43 @@ export default async function fetchUser(
     groups: string[];
   } | null = null;
 
+  const userData = await db.query.user.findFirst({
+    where(fields, operators) {
+      return operators.eq(fields.id, userId);
+    },
+    columns: {
+      name: true,
+      image: true,
+      email: true,
+      connectedRobloxAccount: true,
+    },
+  });
+
+  context.login_method = userData?.email.endsWith("@accounts.emillio.dev")
+    ? "roblox"
+    : "discord";
+
   switch (context.login_method) {
     case "roblox":
-      const [userFetch, avatarFetch] = await Promise.all([
-        fetch(`https://users.roblox.com/v1/users/${userId}`),
-        fetch(
-          `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&format=Png&size=150x150`,
-        ),
-      ]);
-      const [userData1, avatar] = (await Promise.all([
-        userFetch.json(),
-        avatarFetch.json(),
-      ])) as [
-        { displayName: string; name: string; id: string; profileUrl: string },
-        {
-          data: {
-            imageUrl: string;
-          }[];
-        },
-      ];
-      if (!userData1) return "NO_USER_IN_DB";
-      if (!avatar) return "NO_USER_IN_DB";
+      const kvUser = await cfCtx.env.USERS_KV.get<{
+        i: string;
+        u: string;
+        d: string;
+        au: string;
+      }>("roblox|" + userId, "json");
+      if (!kvUser) return "NO_USER_IN_DB";
       user = {
         subject: `roblox|${userId}`,
         method: context.login_method,
-        email: `${userData1.id}@accounts.emillio.dev`,
-        name: `${userData1.displayName} (@${userData1.name})`,
-        preferred_username: userData1.name,
-        picture: avatar.data[0]!.imageUrl,
+        email: `${kvUser.i}@accounts.emillio.dev`,
+        name: `${kvUser.d} (@${kvUser.u})`,
+        preferred_username: kvUser.u,
+        picture: kvUser.au,
         groups: [],
       };
       break;
     case "discord":
       if (consent.config?.discord_direct) {
-        const accountData = await db.query.account.findFirst({
-          where(fields, operators) {
-            return operators.eq(fields.accountId, userId);
-          },
-        });
-
-        if (!accountData || accountData?.providerId !== "discord") {
-          return "NO_DISCORD_ACCOUNT_DATA";
-        }
-
-        const userData = await db.query.user.findFirst({
-          where(fields, operators) {
-            return operators.eq(fields.id, accountData.userId);
-          },
-        });
-
         if (!userData) {
           return "NO_USER_IN_DB";
         }
@@ -106,59 +94,26 @@ export default async function fetchUser(
             return operators.eq(fields.id, account.userId);
           },
         });
-        const [userFetch, avatarFetch] = await Promise.all([
-          fetch(
-            `https://users.roblox.com/v1/users/${userDb?.connectedRobloxAccount}`,
-          ),
-          fetch(
-            `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userDb?.connectedRobloxAccount}&format=Png&size=720x720`,
-          ),
-        ]);
-        const [userData, avatar] = (await Promise.all([
-          userFetch.json(),
-          avatarFetch.json(),
-        ])) as [
-          { displayName: string; name: string; id: string; profileUrl: string },
-          {
-            data: {
-              imageUrl: string;
-            }[];
-          },
-        ];
+
+        const kvUser = await cfCtx.env.USERS_KV.get<{
+          i: string;
+          u: string;
+          d: string;
+          au: string;
+        }>("roblox|" + userDb?.connectedRobloxAccount, "json");
+
+        if (!kvUser) return "NO_USER_IN_DB";
+
         user = {
           subject: `roblox|${userDb?.connectedRobloxAccount}`,
           method: context.login_method,
-          email: `${userData.id}@accounts.emillio.dev`,
-          name: `${userData.displayName} (@${userData.name})`,
-          preferred_username: userData.name,
-          picture: avatar.data[0]!.imageUrl,
+          email: `${kvUser.i}@accounts.emillio.dev`,
+          name: `${kvUser.d} (@${kvUser.u})`,
+          preferred_username: kvUser.u,
+          picture: kvUser.au,
           groups: [],
         };
       }
-      break;
-    case "microsoft":
-      if (consent.config?.no_staff) {
-        return "NO_STAFF";
-      }
-      const userData = await db.query.user.findFirst({
-        where(fields, operators) {
-          return operators.eq(fields.id, userId);
-        },
-      });
-      if (!userData) {
-        return "NO_USER_IN_DB";
-      }
-
-      user = {
-        subject: `myteam|${userId}`,
-        method: context.login_method,
-        email: userData.email,
-        name: userData.name,
-        preferred_username: userData.email,
-        picture: userData.image!,
-        groups: JSON.parse(userData.groups) as string[],
-      };
-
       break;
     default:
       if (!user) return "NO_USER_OBJECT";

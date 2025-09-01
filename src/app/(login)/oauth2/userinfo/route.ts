@@ -144,17 +144,13 @@ export async function GET(req: NextRequest) {
       },
     });
   }
-  const userData = await fetchUser(
-    account.providerId === "microsoft" ? user.id : account.accountId,
-    account.providerId,
-    {
-      discord_direct:
-        oauth2Session.force_roblox_account || account.providerId === "microsoft"
-          ? false
-          : client.with_discord_direct,
-      no_staff: client.with_no_staff,
-    },
-  );
+  const userData = await fetchUser(user.id, {
+    discord_direct:
+      oauth2Session.force_roblox_account || account.providerId === "microsoft"
+        ? false
+        : client.with_discord_direct,
+    no_staff: client.with_no_staff,
+  });
 
   if (typeof userData === "string") {
     return new NextResponse("Unauthorized", {

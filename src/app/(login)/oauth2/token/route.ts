@@ -220,31 +220,20 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const [account, clientConfig] = await db.batch([
-    db.query.account.findFirst({
-      columns: {
-        providerId: true,
-        accountId: true,
-      },
-      where(fields, operators) {
-        return operators.eq(fields.userId, oauth2Session.user_id);
-      },
-    }),
-    db.query.oauth2Client.findFirst({
-      columns: {
-        id: true,
-        clientSecret: true,
-        jwtSigningAlgorithm: true,
-        with_discord_direct: true,
-        with_no_staff: true,
-      },
-      where(fields, operators) {
-        return operators.eq(fields.id, oauth2Session.client_id);
-      },
-    }),
-  ]);
+  const clientConfig = await db.query.oauth2Client.findFirst({
+    columns: {
+      id: true,
+      clientSecret: true,
+      jwtSigningAlgorithm: true,
+      with_discord_direct: true,
+      with_no_staff: true,
+    },
+    where(fields, operators) {
+      return operators.eq(fields.id, oauth2Session.client_id);
+    },
+  });
 
-  if (!account || !clientConfig) {
+  if (!clientConfig) {
     return NextResponse.json(
       {
         error: "invalid_grant",
@@ -274,19 +263,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const userData = await fetchUser(
-    account.providerId == "microsoft"
-      ? oauth2Session.user_id
-      : account.accountId,
-    account.providerId,
-    {
-      discord_direct:
-        oauth2Session.force_roblox_account || account.providerId === "microsoft"
-          ? false
-          : clientConfig.with_discord_direct,
-      no_staff: clientConfig.with_no_staff,
-    },
-  );
+  const userData = await fetchUser(oauth2Session.user_id, {
+    discord_direct: oauth2Session.force_roblox_account
+      ? false
+      : clientConfig.with_discord_direct,
+    no_staff: clientConfig.with_no_staff,
+  });
   if (typeof userData === "string") {
     return NextResponse.json(
       {

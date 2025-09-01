@@ -1,10 +1,8 @@
 "use client";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Button } from "~/components/ui/button";
 import { api } from "~/trpc/react";
-import LoginTemplate from "./login-template";
+import LoginTemplate from "../login-template";
 import { W95Font, W95FontBold } from "~/app/fonts";
 
 export default function RobloxLink({

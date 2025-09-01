@@ -39,11 +39,10 @@ export const accountManagementRouter = createTRPCRouter({
           {
             headers: { Authorization: "a95a4b98-58d7-4e82-bb23-6bf76d49cc64" },
           },
-        ).then(
-          (response) =>
-            response.json() as Promise<{
-              robloxID: string;
-            }>,
+        ).then((response) =>
+          response.json<{
+            robloxID: string;
+          }>(),
         );
         await ctx.db
           .update(user)

@@ -2,7 +2,7 @@ import Image from "next/image";
 import { auth } from "~/server/auth";
 import { headers as headersStore } from "next/headers";
 import SSOButtons from "./sso-buttons";
-import RobloxLink from "./roblox-link";
+import RobloxLink from "./prompts/roblox-link";
 import { redirect } from "next/navigation";
 import { api } from "~/trpc/server";
 import SigningIn from "./signing-in";

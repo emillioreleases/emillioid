@@ -10,9 +10,9 @@ import { Button } from "~/components/ui/button";
 import { authClient } from "~/utils/auth-client";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
-import RobloxLink from "./roblox-link";
+import RobloxLink from "./prompts/roblox-link";
 import Image from "next/image";
-import { W95Font, W95FontBold } from "~/app/fonts";
+import { W95Font } from "~/app/fonts";
 
 export default function SigningIn({
   login_challenge,

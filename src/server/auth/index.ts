@@ -5,40 +5,8 @@ import { env } from "~/env";
 import { db } from "~/server/db"; // your drizzle instance
 import { user } from "~/server/db/schema";
 import { eq } from "drizzle-orm";
-import { decodeJwt } from "jose";
-
-let token_data: { access_token: string; expiry: number } | null = null;
-async function getAccessToken() {
-  if (token_data) {
-    if (token_data.expiry > Date.now()) {
-      return token_data.access_token;
-    } else {
-      token_data = null;
-    }
-  }
-
-  if (!token_data) {
-    const data = (await fetch(
-      "https://login.microsoftonline.com/" +
-        "22154f5d-99aa-441b-b2fb-faed3d21b3cb" +
-        "/oauth2/v2.0/token",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({
-          client_id: env.AF_ID,
-          client_secret: env.AF_SECRET,
-          grant_type: "client_credentials",
-          scope: "https://graph.microsoft.com/.default",
-        }),
-      },
-    ).then((res) => res.json())) as { access_token: string; expiry: number };
-    token_data = data;
-    return data.access_token;
-  }
-}
+import { cfCtx } from "~/utils/cloudflare";
+import { diff } from "json-diff-ts";
 
 export const auth = betterAuth({
   advanced: {
@@ -55,6 +23,123 @@ export const auth = betterAuth({
       clientId: env.AUTH_DISCORD_ID,
       clientSecret: env.AUTH_DISCORD_SECRET,
       overrideUserInfoOnSignIn: true,
+      async getUserInfo(accessToken) {
+        const discordFetch = await fetch("https://discord.com/api/users/@me", {
+          headers: {
+            Authorization: `Bearer ${accessToken.accessToken}`,
+          },
+        });
+
+        const discordData = await discordFetch.json<{
+          id: string;
+          username: string;
+          global_name?: string;
+          email: string;
+          discriminator: string;
+          avatar: string;
+          verified: boolean;
+          image_url: string;
+        }>();
+
+        const existingUser = await db.query.user.findFirst({
+          where: eq(user.id, discordData.id),
+          columns: {
+            connectedRobloxAccount: true,
+          },
+        });
+
+        if (existingUser) {
+          if (existingUser.connectedRobloxAccount) {
+            try {
+              const [userFetch, avatarFetch] = await Promise.all([
+                fetch(
+                  `https://users.roblox.com/v1/users/${existingUser.connectedRobloxAccount}`,
+                ),
+                fetch(
+                  `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${existingUser.connectedRobloxAccount}&format=Png&size=150x150`,
+                ),
+              ]);
+              const [userData1, avatar] = (await Promise.all([
+                userFetch.json(),
+                avatarFetch.json(),
+              ])) as [
+                {
+                  displayName: string;
+                  name: string;
+                  id: string;
+                  profileUrl: string;
+                },
+                {
+                  data: {
+                    imageUrl: string;
+                  }[];
+                },
+              ];
+              if (userData1 && avatar) {
+                const user = await cfCtx.env.USERS_KV.get<{
+                  i: string;
+                  d: string;
+                  u: string;
+                  au: string;
+                }>("roblox|" + userData1.id, "json");
+                if (!user) {
+                  await cfCtx.env.USERS_KV.put(
+                    "roblox|" + userData1.id,
+                    JSON.stringify({
+                      i: userData1.id,
+                      d: userData1.displayName,
+                      u: userData1.name,
+                      au: avatar.data[0]?.imageUrl,
+                    }),
+                  );
+                } else {
+                  const differences = diff(user, {
+                    i: userData1.id,
+                    d: userData1.displayName,
+                    u: userData1.name,
+                    au: avatar.data[0]?.imageUrl,
+                  });
+                  if (differences.length > 0) {
+                    await cfCtx.env.USERS_KV.put(
+                      "roblox|" + userData1.id,
+                      JSON.stringify({
+                        i: userData1.id,
+                        d: userData1.displayName,
+                        u: userData1.name,
+                        au: avatar.data[0]?.imageUrl,
+                      }),
+                    );
+                  }
+                }
+              }
+            } catch {}
+          }
+        }
+
+        if (discordData.avatar === null) {
+          const defaultAvatarNumber =
+            discordData.discriminator === "0"
+              ? Number(BigInt(discordData.id) >> BigInt(22)) % 6
+              : parseInt(discordData.discriminator) % 5;
+          discordData.image_url = `https://cdn.discordapp.com/embed/avatars/${defaultAvatarNumber}.png`;
+        } else {
+          const format = discordData.avatar.startsWith("a_") ? "gif" : "png";
+          discordData.image_url = `https://cdn.discordapp.com/avatars/${discordData.id}/${discordData.avatar}.${format}`;
+        }
+
+        return {
+          user: {
+            id: discordData.id,
+            name: discordData.global_name
+              ? discordData.global_name + " (@" + discordData.username + ")"
+              : discordData.username,
+            email: discordData.email,
+            image: discordData.image_url,
+            emailVerified: discordData.verified,
+          },
+          data: null,
+        };
+      },
     },
     roblox: {
       clientId: env.AUTH_ROBLOX_ID,
@@ -69,14 +154,51 @@ export const auth = betterAuth({
             },
           },
         );
-        const oidcData = (await oidcFetch.json()) as {
+
+        const oidcData = await oidcFetch.json<{
           sub: string;
           name: string;
           nickname: string;
           preferred_username: string;
           picture: string;
           profile: string;
-        };
+        }>();
+
+        const user = await cfCtx.env.USERS_KV.get<{
+          i: string;
+          d: string;
+          u: string;
+          au: string;
+        }>("roblox|" + oidcData.sub, "json");
+        if (!user) {
+          await cfCtx.env.USERS_KV.put(
+            "roblox|" + oidcData.sub,
+            JSON.stringify({
+              i: oidcData.sub,
+              d: oidcData.nickname,
+              u: oidcData.preferred_username,
+              au: oidcData.picture,
+            }),
+          );
+        } else {
+          const differences = diff(user, {
+            i: oidcData.sub,
+            d: oidcData.nickname,
+            u: oidcData.preferred_username,
+            au: oidcData.picture,
+          });
+          if (differences.length > 0) {
+            await cfCtx.env.USERS_KV.put(
+              "roblox|" + oidcData.sub,
+              JSON.stringify({
+                i: oidcData.sub,
+                d: oidcData.nickname,
+                u: oidcData.preferred_username,
+                au: oidcData.picture,
+              }),
+            );
+          }
+        }
 
         return {
           user: {
@@ -87,64 +209,6 @@ export const auth = betterAuth({
             groups: JSON.stringify([]),
             emailVerified: true,
             connectedRobloxAccount: oidcData.sub,
-            verifiedWanted: true,
-          },
-          data: null,
-        };
-      },
-    },
-    microsoft: {
-      clientId: env.AUTH_MICROSOFT_ID,
-      clientSecret: env.AUTH_MICROSOFT_SECRET,
-      scope: ["openid", "profile", "email", "User.Read"],
-      tenantId: env.AUTH_MICROSOFT_TENANT_ID,
-      overrideUserInfoOnSignIn: true,
-      async getUserInfo(accessToken) {
-        const at = await getAccessToken();
-        const idToken = decodeJwt(accessToken.idToken!);
-        const [userFetch, attributeFetch, groupsFetch] = await Promise.all([
-          fetch(
-            "https://graph.microsoft.com/v1.0/me?$select=id,mail,displayName,givenName,surName",
-            { headers: { Authorization: `Bearer ${accessToken.accessToken}` } },
-          ),
-          fetch(
-            `https://graph.microsoft.com/v1.0/users/${idToken.oid as string}?$select=customSecurityAttributes`,
-            { headers: { Authorization: `Bearer ${at}` } },
-          ),
-          fetch(
-            `https://graph.microsoft.com/v1.0/users/${idToken.oid as string}/memberOf/microsoft.graph.group?$select=displayName`,
-            { headers: { Authorization: `Bearer ${at}` } },
-          ),
-        ]);
-        const [user, attributes, groups] = (await Promise.all([
-          userFetch.json(),
-          attributeFetch.json(),
-          groupsFetch.json(),
-        ])) as [
-          {
-            id: string;
-            mail: string;
-            displayName: string;
-            givenName: string;
-            surname: string;
-          },
-          {
-            customSecurityAttributes: Record<string, Record<string, string>>;
-          },
-          { value: { displayName: string }[] },
-        ];
-        return {
-          user: {
-            id: user.id,
-            email: user.mail,
-            name: `${user.givenName} ${user.surname}`,
-            image: `https://mtav.bloxvalschools.com/${user.mail.split("@")[0]}`,
-            groups: JSON.stringify(groups.value.map((g) => g.displayName)),
-            emailVerified: true,
-            connectedRobloxAccount: attributes.customSecurityAttributes
-              .socialIDs
-              ? attributes.customSecurityAttributes.socialIDs.robloxID
-              : null,
             verifiedWanted: true,
           },
           data: null,

@@ -37,72 +37,87 @@ export const posts = createTable(
   ],
 );
 
-export const user = createTable("user", (d) => ({
-  id: d.text("id").primaryKey(),
-  name: d.text("name").notNull(),
-  email: d.text("email").notNull().unique(),
-  emailVerified: d
-    .integer("email_verified", { mode: "boolean" })
-    .$defaultFn(() => false)
-    .notNull(),
-  image: d.text("image"),
-  connectedRobloxAccount: d.text("connected_roblox_account"),
-  groups: d.text("groups").default(JSON.stringify([])).notNull(),
-  verifiedWanted: d
-    .integer("verified_wanted", { mode: "boolean" })
-    .$defaultFn(() => false)
-    .notNull(),
-  createdAt: d
-    .integer("created_at", { mode: "timestamp" })
-    .$defaultFn(() => /* @__PURE__ */ new Date())
-    .notNull(),
-  updatedAt: d
-    .integer("updated_at", { mode: "timestamp" })
-    .$defaultFn(() => /* @__PURE__ */ new Date())
-    .notNull(),
-}));
-
-export const session = createTable("session", (d) => ({
-  id: d.text("id").primaryKey(),
-  expiresAt: d.integer("expires_at", { mode: "timestamp" }).notNull(),
-  token: d.text("token").notNull().unique(),
-  createdAt: d.integer("created_at", { mode: "timestamp" }).notNull(),
-  updatedAt: d.integer("updated_at", { mode: "timestamp" }).notNull(),
-  ipAddress: d.text("ip_address"),
-  userAgent: d.text("user_agent"),
-  userId: d
-    .text("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  orySessions: d.text("ory_sessions").default(JSON.stringify([])).notNull(),
-  oryClientSessions: d
-    .text("ory_client_sessions")
-    .default(JSON.stringify([]))
-    .notNull(),
-}));
-
-export const account = createTable("account", (d) => ({
-  id: d.text("id").primaryKey(),
-  accountId: d.text("account_id").notNull(),
-  providerId: d.text("provider_id").notNull(),
-  userId: d
-    .text("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  accessToken: d.text("access_token"),
-  refreshToken: d.text("refresh_token"),
-  idToken: d.text("id_token"),
-  accessTokenExpiresAt: d.integer("access_token_expires_at", {
-    mode: "timestamp",
+export const user = createTable(
+  "user",
+  (d) => ({
+    id: d.text("id").primaryKey(),
+    name: d.text("name").notNull(),
+    email: d.text("email").notNull().unique(),
+    emailVerified: d
+      .integer("email_verified", { mode: "boolean" })
+      .$defaultFn(() => false)
+      .notNull(),
+    image: d.text("image"),
+    connectedRobloxAccount: d.text("connected_roblox_account"),
+    groups: d.text("groups").default(JSON.stringify([])).notNull(),
+    verifiedWanted: d
+      .integer("verified_wanted", { mode: "boolean" })
+      .$defaultFn(() => false)
+      .notNull(),
+    createdAt: d
+      .integer("created_at", { mode: "timestamp" })
+      .$defaultFn(() => /* @__PURE__ */ new Date())
+      .notNull(),
+    updatedAt: d
+      .integer("updated_at", { mode: "timestamp" })
+      .$defaultFn(() => /* @__PURE__ */ new Date())
+      .notNull(),
   }),
-  refreshTokenExpiresAt: d.integer("refresh_token_expires_at", {
-    mode: "timestamp",
+  (t) => [index("user_id_idx").on(t.id)],
+);
+
+export const session = createTable(
+  "session",
+  (d) => ({
+    id: d.text("id").primaryKey(),
+    expiresAt: d.integer("expires_at", { mode: "timestamp" }).notNull(),
+    token: d.text("token").notNull().unique(),
+    createdAt: d.integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: d.integer("updated_at", { mode: "timestamp" }).notNull(),
+    ipAddress: d.text("ip_address"),
+    userAgent: d.text("user_agent"),
+    userId: d
+      .text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    orySessions: d.text("ory_sessions").default(JSON.stringify([])).notNull(),
+    oryClientSessions: d
+      .text("ory_client_sessions")
+      .default(JSON.stringify([]))
+      .notNull(),
   }),
-  scope: d.text("scope"),
-  password: d.text("password"),
-  createdAt: d.integer("created_at", { mode: "timestamp" }).notNull(),
-  updatedAt: d.integer("updated_at", { mode: "timestamp" }).notNull(),
-}));
+  (t) => [
+    index("session_id_idx").on(t.id),
+    index("session_user_id_idx").on(t.userId),
+  ],
+);
+
+export const account = createTable(
+  "account",
+  (d) => ({
+    id: d.text("id").primaryKey(),
+    accountId: d.text("account_id").notNull(),
+    providerId: d.text("provider_id").notNull(),
+    userId: d
+      .text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    accessToken: d.text("access_token"),
+    refreshToken: d.text("refresh_token"),
+    idToken: d.text("id_token"),
+    accessTokenExpiresAt: d.integer("access_token_expires_at", {
+      mode: "timestamp",
+    }),
+    refreshTokenExpiresAt: d.integer("refresh_token_expires_at", {
+      mode: "timestamp",
+    }),
+    scope: d.text("scope"),
+    password: d.text("password"),
+    createdAt: d.integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: d.integer("updated_at", { mode: "timestamp" }).notNull(),
+  }),
+  (t) => [index("account_user_id_idx").on(t.userId)],
+);
 
 export const verification = createTable("verification", (d) => ({
   id: d.text("id").primaryKey(),
