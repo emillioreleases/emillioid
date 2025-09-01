@@ -1,5 +1,5 @@
 import { db } from "~/server/db";
-import { cfCtx } from "~/utils/cloudflare";
+import { cfCtx as cloudflare } from "~/utils/cloudflare";
 
 export default async function fetchUser(
   userId: string,
@@ -16,6 +16,7 @@ export default async function fetchUser(
       groups: string[];
     }
 > {
+  const cfCtx = await cloudflare;
   const consent = {
     config: config,
   };

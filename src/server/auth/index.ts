@@ -5,7 +5,7 @@ import { env } from "~/env";
 import { db } from "~/server/db"; // your drizzle instance
 import { user } from "~/server/db/schema";
 import { eq } from "drizzle-orm";
-import { cfCtx } from "~/utils/cloudflare";
+import { cfCtx as cloudflare } from "~/utils/cloudflare";
 import { diff } from "json-diff-ts";
 
 export const auth = betterAuth({
@@ -24,6 +24,7 @@ export const auth = betterAuth({
       clientSecret: env.AUTH_DISCORD_SECRET,
       overrideUserInfoOnSignIn: true,
       async getUserInfo(accessToken) {
+        const cfCtx = await cloudflare;
         const discordFetch = await fetch("https://discord.com/api/users/@me", {
           headers: {
             Authorization: `Bearer ${accessToken.accessToken}`,
@@ -146,6 +147,8 @@ export const auth = betterAuth({
       clientSecret: env.AUTH_ROBLOX_SECRET,
       overrideUserInfoOnSignIn: true,
       async getUserInfo(accessToken) {
+        const cfCtx = await cloudflare;
+
         const oidcFetch = await fetch(
           "https://apis.roblox.com/oauth/v1/userinfo",
           {
