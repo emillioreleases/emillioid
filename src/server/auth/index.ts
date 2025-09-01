@@ -43,7 +43,7 @@ export const auth = betterAuth({
         }>();
 
         const existingUser = await db.query.user.findFirst({
-          where: eq(user.id, discordData.id),
+          where: eq(user.email, discordData.email),
           columns: {
             connectedRobloxAccount: true,
           },
@@ -76,6 +76,8 @@ export const auth = betterAuth({
                   }[];
                 },
               ];
+              console.log(userData1);
+              console.log(avatar);
               if (userData1 && avatar) {
                 const user = await cfCtx.env.USERS_KV.get<{
                   i: string;
@@ -113,7 +115,9 @@ export const auth = betterAuth({
                   }
                 }
               }
-            } catch {}
+            } catch (e) {
+              console.error(e);
+            }
           }
         }
 

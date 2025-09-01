@@ -63,7 +63,7 @@ export const user = createTable(
       .$defaultFn(() => /* @__PURE__ */ new Date())
       .notNull(),
   }),
-  (t) => [index("user_id_idx").on(t.id)],
+  (t) => [index("user_id_idx").on(t.id), index("user_email_idx").on(t.email)],
 );
 
 export const session = createTable(

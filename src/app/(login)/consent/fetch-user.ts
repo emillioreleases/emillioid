@@ -84,15 +84,12 @@ export default async function fetchUser(
           groups: [],
         };
       } else {
-        const account = await db.query.account.findFirst({
-          where(fields, operators) {
-            return operators.eq(fields.accountId, userId);
-          },
-        });
-        if (!account) return "NO_USER_IN_DB";
         const userDb = await db.query.user.findFirst({
           where(fields, operators) {
-            return operators.eq(fields.id, account.userId);
+            return operators.eq(fields.id, userId);
+          },
+          columns: {
+            connectedRobloxAccount: true,
           },
         });
 
@@ -102,7 +99,6 @@ export default async function fetchUser(
           d: string;
           au: string;
         }>("roblox|" + userDb?.connectedRobloxAccount, "json");
-
         if (!kvUser) return "NO_USER_IN_DB";
 
         user = {

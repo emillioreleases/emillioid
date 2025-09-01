@@ -1,0 +1,1 @@
+CREATE INDEX `user_email_idx` ON `bcps-orylogin_user` (`email`);
