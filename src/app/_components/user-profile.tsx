@@ -78,7 +78,16 @@ export default async function UserProfile() {
         ) : (
           <DropdownMenuItem>Login</DropdownMenuItem>
         )}
-        <div className="bg-muted -mx-1 -mb-1 mt-1 px-2.5 flex space-x-2"><span className="opacity-25 text-sm my-3">{"Powered by"}</span><Image src={"/logo.png"} alt={"Logo"} width={40} height={40} className="opacity-25 object-cover" /></div>
+        <div className="bg-muted -mx-1 mt-1 -mb-1 flex items-center space-x-2 px-2.5">
+          <span className="my-3 text-sm opacity-25">{"Powered by"}</span>
+          <Image
+            src={"/logo.png"}
+            alt={"Logo"}
+            width={120}
+            height={20}
+            className="h-5 object-cover opacity-25 grayscale invert"
+          />
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );

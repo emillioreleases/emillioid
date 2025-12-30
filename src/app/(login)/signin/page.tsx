@@ -51,7 +51,7 @@ export default async function SignIn({
     if (!client || !prompt) {
       return (
         <>
-          <header className="mx-[-1rem] mt-[-1.5rem] mb-[-0.75rem] flex min-w-full items-stretch justify-center space-x-2 p-4">
+          <header className="-mx-4 -mt-6 -mb-3 flex min-w-full items-stretch justify-center space-x-2 p-4">
             <Image src={"/logo.png"} alt={"Logo"} width={100} height={75} />
           </header>
           <div>Something went wrong! Please contact the IT department.</div>
