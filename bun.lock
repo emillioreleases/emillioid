@@ -8,7 +8,7 @@
         "@auth/drizzle-adapter": "^1.11.1",
         "@libsql/client": "^0.17.0",
         "@opennextjs/cloudflare": "^1.14.7",
-        "@ory/client": "^1.22.15",
+        "@ory/client": "^1.22.26",
         "@radix-ui/react-avatar": "^1.1.11",
         "@radix-ui/react-dropdown-menu": "^2.1.16",
         "@radix-ui/react-slot": "^1.2.4",
@@ -499,7 +499,7 @@
 
     "@opennextjs/cloudflare": ["@opennextjs/cloudflare@1.14.7", "", { "dependencies": { "@ast-grep/napi": "0.40.0", "@dotenvx/dotenvx": "1.31.0", "@opennextjs/aws": "3.9.7", "cloudflare": "^4.4.1", "enquirer": "^2.4.1", "glob": "^12.0.0", "ts-tqdm": "^0.8.6", "yargs": "^18.0.0" }, "peerDependencies": { "next": "^14.2.35 || ~15.0.7 || ~15.1.11 || ~15.2.8 || ~15.3.8 || ~15.4.10 || ~15.5.9 || ^16.0.10", "wrangler": "^4.53.0" }, "bin": { "opennextjs-cloudflare": "dist/cli/index.js" } }, "sha512-gHK1vx2nIYvr16IG71zRFVTq5diV8haYb6UV+DHw1JZTw1xrM5g6E+k7tDu5n8NX0u/9QH+cZIsJS7nmXUnc+A=="],
 
-    "@ory/client": ["@ory/client@1.22.15", "", { "dependencies": { "axios": "^1.6.1" } }, "sha512-1JAd4ltj1/LBduDm7hwsyUCXN6PgfknEocK4iWeFYIqK70Mq29mLGmLS3m9Dxe2XbQSJ5dDBeFj0AlMyD5pP6Q=="],
+    "@ory/client": ["@ory/client@1.22.26", "", { "dependencies": { "axios": "^1.6.1" } }, "sha512-Y8f9RU8Z9Cpx91IbDUV4zu8PvTaHbuUrY7KjBp4/Ql79gZc8vp76FLfJaR3dVV9dJEMxDG/kVzre7i9zDZpo1g=="],
 
     "@panva/hkdf": ["@panva/hkdf@1.2.1", "", {}, "sha512-6oclG6Y3PiDFcoyk8srjLfVKyMfVCKJ27JwNPViuXziFpmdz+MZnZN/aKY0JGXgYuO/VghU0jcOAZgWXZ1Dmrw=="],
 
