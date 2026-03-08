@@ -2,9 +2,19 @@ import { TRPCError } from "@trpc/server";
 
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 
+function isEmailInDomain(email: string | null | undefined, domain: string): boolean {
+  if (!email) return false;
+  const atIndex = email.lastIndexOf("@");
+  if (atIndex === -1 || atIndex === email.length - 1) {
+    return false;
+  }
+  const emailDomain = email.slice(atIndex + 1).toLowerCase();
+  return emailDomain === domain.toLowerCase();
+}
+
 export const infoRouter = createTRPCRouter({
   details: protectedProcedure.query(async ({ ctx }) => {
-    if (ctx.session.user.email.endsWith("bloxvalschools.com")) {
+    if (isEmailInDomain(ctx.session.user.email, "bloxvalschools.com")) {
       return {
         name: ctx.session.user.name,
         image: ctx.session.user.image,
