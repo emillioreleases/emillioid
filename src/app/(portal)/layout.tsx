@@ -17,8 +17,19 @@ export default async function PortalLayout({
     redirect("/signin");
   }
 
+  const getEmailDomain = (email: string | null | undefined): string | null => {
+    if (!email) return null;
+    const atIndex = email.lastIndexOf("@");
+    if (atIndex === -1 || atIndex === email.length - 1) {
+      return null;
+    }
+    return email.slice(atIndex + 1).toLowerCase();
+  };
+
+  const emailDomain = getEmailDomain(session?.user.email);
+
   if (
-    !session?.user.email.endsWith("bloxvalschools.com") &&
+    emailDomain !== "bloxvalschools.com" &&
     !session?.user.connectedRobloxAccount
   ) {
     redirect("/signin");
