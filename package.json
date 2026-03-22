@@ -24,7 +24,7 @@
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.1",
-    "@better-auth/oauth-provider": "^1.5.5",
+    "@better-auth/oauth-provider": "^1.5.6",
     "@libsql/client": "^0.17.0",
     "@opennextjs/cloudflare": "^1.17.1",
     "@ory/client": "^1.22.28",
