@@ -28,10 +28,7 @@ export default async function PortalLayout({
 
   const emailDomain = getEmailDomain(session?.user.email);
 
-  if (
-    emailDomain !== "bloxvalschools.com" &&
-    !session?.user.connectedRobloxAccount
-  ) {
+  if (emailDomain !== "emillio.dev" && !session?.user.connectedRobloxAccount) {
     redirect("/signin");
   }
 
@@ -43,7 +40,7 @@ export default async function PortalLayout({
           alt={"Logo"}
           width={150}
           height={67.5}
-          className="h-[50px] object-cover"
+          className="h-12.5 object-cover"
         />
         <div>Portal</div>
         <div>
