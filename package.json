@@ -42,6 +42,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.2",
+    "elysia": "^1.4.28",
     "jose": "^6.2.3",
     "json-diff-ts": "^4.10.4",
     "lucide-react": "^1.14.0",
