@@ -1,5 +1,3 @@
-import { Elysia } from "elysia";
-
 export class OAuthError extends Error {
   status = 400;
 

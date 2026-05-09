@@ -176,30 +176,7 @@ export const loginRouter = createTRPCRouter({
         deleteExistingSessions.map((session) => signOutApp(session, client)),
       );
 
-      await ctx.db.batch([
-        ctx.db.insert(oauth2LoginSession).values({
-          id_token: null,
-          access_token: null,
-          refresh_token: null,
-          authorization_code: ac,
-          code_verifier: null,
-          session_id: ctx.session.session.id,
-          user_id: ctx.session.user.id,
-          client_id: request.client_id,
-          scope: request.scope,
-          redirect_uri: request.redirect_uri,
-          token_type: "Bearer",
-          created_at: new Date(),
-          updated_at: new Date(),
-          force_roblox_account:
-            allowed.message !== "with_discord_direct"
-              ? false
-              : input.forceRobloxAccount,
-        }),
-        ctx.db
-          .delete(oauth2LoginAttempt)
-          .where(eq(oauth2LoginAttempt.id, request.id)),
-      ]);
+
       return (
         request.redirect_uri +
         ((request.redirect_uri.endsWith("?") ? "&" : "?") +
