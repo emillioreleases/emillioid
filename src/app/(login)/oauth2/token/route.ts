@@ -284,34 +284,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const idToken = await new SignJWT({
-    sub: userData.subject,
-    sid: oauth2Session.session_id,
-    name: userData.name,
-    preferred_username: userData.preferred_username,
-    picture: userData.picture,
-    email: userData.email,
-    email_verified: true,
-    groups: userData.groups,
-  })
-    .setProtectedHeader({ alg: "RS256", typ: "JWT" })
-    .setIssuedAt()
-    .setIssuer("https://accounts.bloxvalschools.com")
-    .setAudience(clientConfig.id)
-    .setExpirationTime("1h")
-    .sign(
-      await importJWK(
-        await db.query.oauth2Keys
-          .findFirst({
-            where(fields, operators) {
-              return operators.eq(fields.alg, clientConfig.jwtSigningAlgorithm);
-            },
-          })
-          .then((res) => res!.private_key),
-        clientConfig.jwtSigningAlgorithm,
-      ),
-    );
-
   const attid = crypto.randomUUID();
   const rttid = crypto.randomUUID();
 

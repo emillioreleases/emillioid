@@ -6,6 +6,7 @@ import { env } from "~/env";
 import type { auth } from "~/server/auth";
 import { OAuthResponseTypes, type OAuthScopes } from "./Enums";
 import { oauth2LoginSession } from "~/server/db/schema";
+import fetchUser from "~/utils/fetch-user";
 
 const encryptSecret = new TextEncoder().encode(env.OAUTH2_TOKEN_ENCRYPT_KEY);
 
@@ -111,6 +112,7 @@ async function generateIDToken(
   session: NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>,
   oauth2_session_id: string,
 ) {
+  const yes = await fetchUser(session.user.connectedRobloxAccount || session.user.id, { discord_direct: body.selected_account == "discord" })
   const idToken = await new SignJWT({
     sub:
       body.selected_account === "roblox"

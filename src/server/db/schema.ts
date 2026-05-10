@@ -4,7 +4,7 @@ import {
   sqliteTableCreator,
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
-import type { JWK } from "jose";
+import { EmbeddedJWK, type importJWK } from "jose";
 
 /**
  * This is an example of how to use the multi-project schema feature of Drizzle ORM. Use the same
@@ -16,44 +16,16 @@ export const createTable = sqliteTableCreator(
   (name) => `bcps-orylogin_${name}`,
 );
 
-export const posts = createTable(
-  "post",
-  (d) => ({
-    id: d.integer({ mode: "number" }).primaryKey({ autoIncrement: true }),
-    name: d.text({ length: 256 }),
-    createdById: d
-      .text({ length: 255 })
-      .notNull()
-      .references(() => user.id),
-    createdAt: d
-      .integer({ mode: "timestamp" })
-      .default(sql`(unixepoch())`)
-      .notNull(),
-    updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
-  }),
-  (t) => [
-    index("created_by_idx").on(t.createdById),
-    index("name_idx").on(t.name),
-  ],
-);
-
 export const user = createTable(
   "user",
   (d) => ({
-    id: d.text("id").primaryKey(),
-    name: d.text("name").notNull(),
-    email: d.text("email").notNull().unique(),
-    emailVerified: d
-      .integer("email_verified", { mode: "boolean" })
-      .$defaultFn(() => false)
-      .notNull(),
-    image: d.text("image"),
-    connectedRobloxAccount: d.text("connected_roblox_account"),
+    id: d
+      .text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    connectedRobloxAccount: d.text("connected_roblox_account").unique(),
+    connectedDiscordAccount: d.text("connected_discord_account").unique(),
     groups: d.text("groups").default(JSON.stringify([])).notNull(),
-    verifiedWanted: d
-      .integer("verified_wanted", { mode: "boolean" })
-      .$defaultFn(() => false)
-      .notNull(),
     createdAt: d
       .integer("created_at", { mode: "timestamp" })
       .$defaultFn(() => /* @__PURE__ */ new Date())
@@ -63,8 +35,19 @@ export const user = createTable(
       .$defaultFn(() => /* @__PURE__ */ new Date())
       .notNull(),
   }),
-  (t) => [index("user_id_idx").on(t.id), index("user_email_idx").on(t.email)],
+  (t) => [
+    index("user_id_idx").on(t.id),
+    index("user_connected_roblox_account_idx").on(t.connectedRobloxAccount),
+    index("user_connected_discord_account_idx").on(t.connectedDiscordAccount),
+  ],
 );
+
+export const socialUsers = createTable("social_users", (d) => ({
+  userId: d.text().primaryKey(),
+  display_name: d.text(),
+  username: d.text(),
+  image: d.text(),
+}));
 
 export const session = createTable(
   "session",
@@ -181,49 +164,18 @@ export const oauth2Consent = createTable("oauth2_consent", (d) => ({
     .text("id")
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
-  challenge: d.text("challenge").notNull(),
-  login_session_id: d.text("login_session_id").notNull(),
   client_id: d
     .text("client_id")
     .notNull()
     .references(() => oauth2Client.id, { onDelete: "cascade" }),
-  user_id: d.text("user_id").notNull(),
+  user_id: d
+    .text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
   scopes: d.text("scopes").notNull(),
   created_at: d.integer("created_at", { mode: "timestamp" }).notNull(),
   updated_at: d.integer("updated_at", { mode: "timestamp" }).notNull(),
 }));
-
-export const oauth2LoginAttempt = createTable(
-  "oauth2_login_attempt",
-  (d) => ({
-    id: d
-      .text("id")
-      .primaryKey()
-      .$defaultFn(() => crypto.randomUUID())
-      .unique(),
-    client_id: d
-      .text("client_id")
-      .notNull()
-      .references(() => oauth2Client.id, { onDelete: "cascade" }),
-    login_hint: d.text("login_hint"),
-    redirect_uri: d.text("redirect_uri").notNull(),
-    response_type: d.text("response_type").notNull(),
-    scope: d.text("scope").notNull(),
-    state: d.text("state"),
-    nonce: d.text("nonce"),
-    user_id: d
-      .text("user_id")
-      .references(() => user.id, { onDelete: "cascade" }),
-    prompt: d.text("prompt"),
-    promptBypass: d
-      .integer("prompt_bypass", { mode: "boolean" })
-      .notNull()
-      .$defaultFn(() => false),
-    created_at: d.integer("created_at", { mode: "timestamp" }).notNull(),
-    updated_at: d.integer("updated_at", { mode: "timestamp" }).notNull(),
-  }),
-  (t) => [uniqueIndex("id_unique").on(t.id)],
-);
 
 export const oauth2LogoutSession = createTable(
   "oauth2_logout_session",
@@ -293,8 +245,8 @@ export const oauth2Keys = createTable(
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
     alg: d.text().notNull().unique(),
-    public_key: d.text({ mode: "json" }).$type<JWK>().notNull(),
-    private_key: d.text({ mode: "json" }).$type<JWK>().notNull(),
+    public_key: d.text({ mode: "json" }).$type<CryptoKey>().notNull(),
+    private_key: d.text({ mode: "json" }).$type<CryptoKey>().notNull(),
   }),
   (t) => [uniqueIndex("alg_unique").on(t.alg)],
 );

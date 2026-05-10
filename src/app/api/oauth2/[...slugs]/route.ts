@@ -18,6 +18,23 @@ const app = new Elysia({ prefix: "/api/oauth2" })
       return new OAuthError("server_error", "", query.state!);
     }
   })
+  .get("/jwks", async () => {
+    const keys = await db.query.oauth2Keys.findMany({
+      columns: {
+        id: true,
+        alg: true,
+        public_key: true,
+      },
+    });
+    return Response.json({
+      keys: keys.map((key) => ({
+        alg: key.alg,
+        kid: key.id,
+        use: "sig",
+        ...key.public_key,
+      })),
+    });
+  })
   .get(
     "/authorize",
     async ({ query, redirect, headers }) => {
