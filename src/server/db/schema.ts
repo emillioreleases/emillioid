@@ -4,7 +4,7 @@ import {
   sqliteTableCreator,
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
-import { EmbeddedJWK, type importJWK } from "jose";
+import { EmbeddedJWK, type importJWK, type JWK } from "jose";
 
 /**
  * This is an example of how to use the multi-project schema feature of Drizzle ORM. Use the same
@@ -232,8 +232,8 @@ export const oauth2Keys = createTable(
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
     alg: d.text().notNull().unique(),
-    public_key: d.text({ mode: "json" }).$type<CryptoKey>().notNull(),
-    private_key: d.text({ mode: "json" }).$type<CryptoKey>().notNull(),
+    public_key: d.text({ mode: "json" }).$type<JWK>().notNull(),
+    private_key: d.text({ mode: "json" }).$type<JWK>().notNull(),
   }),
   (t) => [uniqueIndex("alg_unique").on(t.alg)],
 );
