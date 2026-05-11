@@ -4,7 +4,7 @@ import {
   sqliteTableCreator,
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
-import { EmbeddedJWK, type importJWK, type JWK } from "jose";
+import { type importJWK, type JWK } from "jose";
 
 /**
  * This is an example of how to use the multi-project schema feature of Drizzle ORM. Use the same
