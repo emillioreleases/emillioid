@@ -20,10 +20,6 @@ export async function clientValidity(query: {
   redirect_uri: string;
 }) {
   const client = await db.query.oauth2Client.findFirst({
-    columns: {
-      id: true,
-      redirectUris: true,
-    },
     where(fields, operators) {
       return operators.eq(fields.id, query.client_id);
     },
@@ -38,6 +34,7 @@ export async function clientValidity(query: {
       query.state,
     );
   }
+  return client;
 }
 
 export async function approveOAuthRequest(
