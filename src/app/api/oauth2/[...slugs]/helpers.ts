@@ -103,7 +103,7 @@ export async function approveOAuthRequest(
   );
 }
 
-async function generateIDToken(
+export async function generateIDToken(
   client: typeof oauth2Client.$inferSelect,
   selected_account: typeof socialUsers.$inferSelect,
   session: typeof sessionDb.$inferSelect,
@@ -138,7 +138,7 @@ async function generateIDToken(
   return idToken;
 }
 
-async function generateToken(
+export async function generateToken(
   query: { client_id: string },
   session: typeof sessionDb.$inferSelect,
   type: string,

@@ -2,9 +2,8 @@ import { Elysia, t } from "elysia";
 import { OAuthError } from "./errors/OAuthError";
 import { OAuthPromptTypes, OAuthResponseTypes, OAuthScopes } from "./Enums";
 import { db } from "~/server/db";
-import { approveOAuthRequest, clientValidity } from "./helpers";
-import { auth } from "~/server/auth";
-import { flowPopup } from "~/server/db/schema";
+import { approveOAuthRequest, clientValidity, generateToken } from "./helpers";
+import { flowPopup, oauth2LoginSession } from "~/server/db/schema";
 
 const app = new Elysia({ prefix: "/api/oauth2" })
   .error({ OAuthError })
@@ -189,6 +188,99 @@ const app = new Elysia({ prefix: "/api/oauth2" })
         "emillioid.session": t.Optional(t.String()),
         "emillioid.flow": t.Optional(t.String()),
       }),
+    },
+  )
+  .post(
+    "/token",
+    async ({ body }) => {
+      const client = await db.query.oauth2Client.findFirst({
+        columns: {
+          id: true,
+        },
+        where(fields, operators) {
+          return operators.and(
+            operators.eq(fields.id, body.get("client_id")?.toString()!),
+            operators.eq(
+              fields.clientSecret,
+              body.get("client_secret")?.toString()!,
+            ),
+          );
+        },
+      });
+
+      if (!client) {
+        throw new OAuthError("invalid_grant", "Invalid client credentials.");
+      }
+
+      switch (body.get("grant_type")) {
+        case "refresh_token":
+          const oauth2Session = await db.query.oauth2LoginSession.findFirst({
+            where(fields, operators) {
+              return operators.and(
+                operators.eq(fields.client_id, client.id),
+                operators.eq(
+                  fields.refresh_token,
+                  body.get("refresh_token")?.toString()!,
+                ),
+                operators.gt(
+                  fields.updated_at,
+                  new Date(Date.now() - 5400 * 1000),
+                ),
+              );
+            },
+          });
+
+          if (!oauth2Session) {
+            throw new OAuthError("invalid_grant", "Refresh token is expired.");
+          }
+
+          const session = await db.query.session.findFirst({
+            where(fields, operators) {
+              return operators.eq(fields.id, oauth2Session?.session_id!);
+            },
+          });
+
+          if (!session) {
+            throw new Error("Something went wrong fetching parent session.");
+          }
+
+          const response = {
+            access_token: await generateToken(
+              { client_id: oauth2Session.client_id },
+              session,
+              "at",
+            ),
+            token_type: "Bearer",
+            expires_in: 3600,
+            refresh_token: await generateToken(
+              { client_id: oauth2Session.client_id },
+              session,
+              "rt",
+            ),
+          };
+
+          await db.update(oauth2LoginSession).set({
+            access_token: response.access_token,
+            refresh_token: response.refresh_token,
+          });
+          return Response.json(response);
+      }
+    },
+    {
+      body: t.Union([
+        t.Form({
+          grant_type: t.Literal("refresh_token"),
+          client_id: t.String(),
+          client_secret: t.String(),
+          refresh_token: t.String(),
+        }),
+        t.Form({
+          grant_type: t.Literal("authorization_code"),
+          code: t.String(),
+          client_id: t.String(),
+          client_secret: t.String(),
+        }),
+      ]),
     },
   );
 
