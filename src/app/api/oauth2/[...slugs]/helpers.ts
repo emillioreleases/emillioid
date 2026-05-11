@@ -3,10 +3,14 @@ import { db } from "~/server/db";
 import { OAuthError } from "./errors/OAuthError";
 import { base64url, CompactEncrypt, importJWK, SignJWT } from "jose";
 import { env } from "~/env";
-import type { auth } from "~/server/auth";
 import { OAuthResponseTypes, type OAuthScopes } from "./Enums";
-import { oauth2LoginSession } from "~/server/db/schema";
-import fetchUser from "~/utils/fetch-user";
+import {
+  flowPopup,
+  oauth2LoginSession,
+  oauth2Client,
+  session as sessionDb,
+  socialUsers,
+} from "~/server/db/schema";
 
 const encryptSecret = new TextEncoder().encode(env.OAUTH2_TOKEN_ENCRYPT_KEY);
 
@@ -44,28 +48,34 @@ export async function approveOAuthRequest(
     response_type: OAuthResponseTypes[];
     redirect_uri: string;
   },
-  body: {
-    selected_account?: string;
-    social_account?: string;
-    consent_granted?: boolean;
-  },
-  session: NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>,
+  client: typeof oauth2Client.$inferSelect,
+  flow: typeof flowPopup.$inferSelect,
+  session: typeof sessionDb.$inferSelect,
 ) {
+  const userData = await db.query.socialUsers.findFirst({
+    where(fields, operators) {
+      return operators.eq(fields.id, flow.selected_account!);
+    },
+  });
+
+  if (!userData) {
+    throw new Error("Found no user data");
+  }
   const data: typeof oauth2LoginSession.$inferInsert = {
     id_token: null,
     access_token: null,
     refresh_token: null,
     authorization_code: null,
     code_verifier: null,
-    session_id: session.session.id,
-    user_id: session.user.id,
+    session_id: session.id,
+    user_id: session.userId,
     client_id: query.client_id,
     scope: query.scope.join(" "),
     redirect_uri: query.redirect_uri,
     token_type: "Bearer",
     created_at: new Date(),
     updated_at: new Date(),
-    force_roblox_account: body.selected_account === "roblox",
+    force_roblox_account: userData.accountType === "roblox",
   };
 
   const uriEncodedStrings = new URLSearchParams();
@@ -81,17 +91,7 @@ export async function approveOAuthRequest(
         uriEncodedStrings.set("access_token", data.access_token);
         uriEncodedStrings.set("token_type", "Bearer");
       case OAuthResponseTypes.IDToken:
-        if (!followupData) {
-          followupData = (
-            await db.insert(oauth2LoginSession).values(data).returning()
-          )[0];
-        }
-        data.id_token = await generateIDToken(
-          query,
-          body,
-          session,
-          followupData?.id!,
-        );
+        data.id_token = await generateIDToken(client, userData, session);
         uriEncodedStrings.set("id_token", data.id_token);
     }
   }
@@ -107,47 +107,43 @@ export async function approveOAuthRequest(
 }
 
 async function generateIDToken(
-  query: { client_id: string },
-  body: { selected_account?: string },
-  session: NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>,
-  oauth2_session_id: string,
+  client: typeof oauth2Client.$inferSelect,
+  selected_account: typeof socialUsers.$inferSelect,
+  session: typeof sessionDb.$inferSelect,
 ) {
-  const yes = await fetchUser(session.user.connectedRobloxAccount || session.user.id, { discord_direct: body.selected_account == "discord" })
   const idToken = await new SignJWT({
-    sub:
-      body.selected_account === "roblox"
-        ? session.user.connectedRobloxAccount
-        : session.user.id,
-    sid: session.session.id,
-    name: session.user.name,
-    preferred_username: session.preferred_username,
-    picture: userData.picture,
-    email: userData.email,
+    sub: selected_account.accountType + "|" + selected_account.accountId,
+    sid: session.id,
+    name: `${selected_account.display_name} (@${selected_account.username})`,
+    nickname: selected_account.display_name,
+    preferred_username: selected_account.username,
+    picture: selected_account.image,
+    email: `${selected_account.accountId}@${selected_account.accountType}.accounts.emillio.dev`,
     email_verified: true,
-    groups: userData.groups,
   })
     .setProtectedHeader({ alg: "RS256", typ: "JWT" })
     .setIssuedAt()
-    .setIssuer("https://accounts.bloxvalschools.com")
-    .setAudience(query.client_id)
+    .setIssuer("https://accounts.emillio.dev")
+    .setAudience(client.id)
     .setExpirationTime("1h")
     .sign(
       await importJWK(
         await db.query.oauth2Keys
           .findFirst({
             where(fields, operators) {
-              return operators.eq(fields.alg, clientConfig.jwtSigningAlgorithm);
+              return operators.eq(fields.alg, client.jwtSigningAlgorithm);
             },
           })
           .then((res) => res!.private_key),
-        clientConfig.jwtSigningAl.gorithm,
+        client.jwtSigningAlgorithm,
       ),
     );
+  return idToken;
 }
 
 async function generateToken(
   query: { client_id: string },
-  session: NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>,
+  session: typeof sessionDb.$inferSelect,
   type: string,
 ) {
   return await new CompactEncrypt(
@@ -157,9 +153,9 @@ async function generateToken(
           "|" +
           query.client_id +
           "|" +
-          session.user.id +
+          session.userId +
           "|" +
-          session.session.id +
+          session.id +
           "|" +
           type,
       ),
