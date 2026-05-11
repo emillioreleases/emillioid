@@ -23,8 +23,6 @@ export const user = createTable(
       .text("id")
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
-    connectedRobloxAccount: d.text("connected_roblox_account").unique(),
-    connectedDiscordAccount: d.text("connected_discord_account").unique(),
     groups: d.text("groups").default(JSON.stringify([])).notNull(),
     createdAt: d
       .integer("created_at", { mode: "timestamp" })
@@ -35,18 +33,25 @@ export const user = createTable(
       .$defaultFn(() => /* @__PURE__ */ new Date())
       .notNull(),
   }),
-  (t) => [
-    index("user_id_idx").on(t.id),
-    index("user_connected_roblox_account_idx").on(t.connectedRobloxAccount),
-    index("user_connected_discord_account_idx").on(t.connectedDiscordAccount),
-  ],
+  (t) => [index("user_id_idx").on(t.id)],
 );
 
 export const socialUsers = createTable("social_users", (d) => ({
-  userId: d.text().primaryKey(),
-  display_name: d.text(),
-  username: d.text(),
-  image: d.text(),
+  id: d
+    .text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  userId: d
+    .text("user_id")
+    .references(() => user.id, { onDelete: "cascade" })
+    .notNull(),
+  accountType: d
+    .text("account_type", { enum: ["roblox", "discord"] })
+    .notNull(),
+  accountId: d.text("account_id").notNull(),
+  display_name: d.text("display_name"),
+  username: d.text("username"),
+  image: d.text("image"),
 }));
 
 export const session = createTable(
@@ -63,11 +68,6 @@ export const session = createTable(
       .text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    orySessions: d.text("ory_sessions").default(JSON.stringify([])).notNull(),
-    oryClientSessions: d
-      .text("ory_client_sessions")
-      .default(JSON.stringify([]))
-      .notNull(),
   }),
   (t) => [
     index("session_id_idx").on(t.id),
@@ -75,32 +75,19 @@ export const session = createTable(
   ],
 );
 
-export const account = createTable(
-  "account",
-  (d) => ({
-    id: d.text("id").primaryKey(),
-    accountId: d.text("account_id").notNull(),
-    providerId: d.text("provider_id").notNull(),
-    userId: d
-      .text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    accessToken: d.text("access_token"),
-    refreshToken: d.text("refresh_token"),
-    idToken: d.text("id_token"),
-    accessTokenExpiresAt: d.integer("access_token_expires_at", {
-      mode: "timestamp",
-    }),
-    refreshTokenExpiresAt: d.integer("refresh_token_expires_at", {
-      mode: "timestamp",
-    }),
-    scope: d.text("scope"),
-    password: d.text("password"),
-    createdAt: d.integer("created_at", { mode: "timestamp" }).notNull(),
-    updatedAt: d.integer("updated_at", { mode: "timestamp" }).notNull(),
+export const flowPopup = createTable("flow_popup", (d) => ({
+  id: d
+    .text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  returnUrl: d.text("return_url").notNull(),
+  saml_request: d.text("saml_request"),
+  selected_account: d.text("selected_account").references(() => socialUsers.id),
+  status: d.text("status", {
+    enum: ["forced_login", "select_account", "complete"],
   }),
-  (t) => [index("account_user_id_idx").on(t.userId)],
-);
+  session_id: d.text("session_id").references(() => session.id),
+}));
 
 export const verification = createTable("verification", (d) => ({
   id: d.text("id").primaryKey(),
