@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { auth } from "~/server/auth";
-import { cookies as cookiesStore, headers as headersStore } from "next/headers";
+import { cookies as cookiesStore } from "next/headers";
 import SSOButtons from "./sso-buttons";
 import RobloxLink from "./prompts/roblox-link";
 import { redirect } from "next/navigation";
