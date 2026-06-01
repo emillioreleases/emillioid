@@ -10,7 +10,7 @@ import {
   type Context,
 } from "~/server/api/trpc";
 import { auth } from "~/server/auth";
-import { oauth2LoginAttempt, oauth2LoginSession } from "~/server/db/schema";
+import { oauth2LoginSession } from "~/server/db/schema";
 import { signOutApp } from "~/utils/signout-app";
 
 export const canLogin = async (ctx: Context, input?: string) => {
@@ -23,12 +23,7 @@ export const canLogin = async (ctx: Context, input?: string) => {
   let discord_direct = false;
 
   if (input) {
-    const request = await ctx.db.query.oauth2LoginAttempt.findFirst({
-      where(fields, operators) {
-        return operators.eq(fields.id, input);
-      },
-    });
-
+    const request = null;
     if (!request) {
       return {
         verdict: false,
@@ -42,7 +37,7 @@ export const canLogin = async (ctx: Context, input?: string) => {
         with_no_staff: true,
       },
       where(fields, operators) {
-        return operators.eq(fields.id, request.client_id);
+        return operators.eq(fields.id, "");
       },
     });
 
@@ -104,11 +99,7 @@ export const loginRouter = createTRPCRouter({
         throw new Error("Invalid login");
       }
 
-      const request = await ctx.db.query.oauth2LoginAttempt.findFirst({
-        where(fields, operators) {
-          return operators.eq(fields.id, input.loginChallenge);
-        },
-      });
+      const request = null;
 
       if (!request) {
         throw new Error("Invalid login");
@@ -176,30 +167,6 @@ export const loginRouter = createTRPCRouter({
         deleteExistingSessions.map((session) => signOutApp(session, client)),
       );
 
-      await ctx.db.batch([
-        ctx.db.insert(oauth2LoginSession).values({
-          id_token: null,
-          access_token: null,
-          refresh_token: null,
-          authorization_code: ac,
-          code_verifier: null,
-          session_id: ctx.session.session.id,
-          user_id: ctx.session.user.id,
-          client_id: request.client_id,
-          scope: request.scope,
-          redirect_uri: request.redirect_uri,
-          token_type: "Bearer",
-          created_at: new Date(),
-          updated_at: new Date(),
-          force_roblox_account:
-            allowed.message !== "with_discord_direct"
-              ? false
-              : input.forceRobloxAccount,
-        }),
-        ctx.db
-          .delete(oauth2LoginAttempt)
-          .where(eq(oauth2LoginAttempt.id, request.id)),
-      ]);
       return (
         request.redirect_uri +
         ((request.redirect_uri.endsWith("?") ? "&" : "?") +

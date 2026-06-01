@@ -17,7 +17,7 @@ export default function LoginTemplate({
 }) {
   return (
     <>
-      <header className="justify-left mx-[-1rem] mt-[-1.5rem] mb-[-1.5rem] flex min-w-full items-stretch space-x-2 p-4">
+      <header className="justify-left -mx-4 -mt-6 -mb-6 flex min-w-full items-stretch space-x-2 p-4">
         <div>
           <Image src={"/logo.png"} alt={"Logo"} width={200} height={89} />
         </div>
@@ -49,7 +49,7 @@ export default function LoginTemplate({
             <a href="https://www.bloxvalschools.com/page/privacy-policy">
               Privacy Policy
             </a>
-            <div className="w-[1px] border-[0.5px] border-gray-800" />
+            <div className="w-px border-[0.5px] border-gray-800" />
             <a href="https://www.bloxvalschools.com/page/tos">Terms of Use</a>
           </div>
         )}
