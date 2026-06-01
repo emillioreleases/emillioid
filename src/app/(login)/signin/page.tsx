@@ -23,7 +23,7 @@ export default async function SignIn({
   }
 
   if (activeSession) {
-    const session = await db.query.session.findFirst({
+    await db.query.session.findFirst({
       where(fields, operators) {
         return operators.eq(fields.id, "");
       },
