@@ -17,9 +17,6 @@ export default async function fetchUser(
       groups: string[];
     }
 > {
-  const consent = {
-    config: config,
-  };
   const context = {
     login_method: "",
     profile_to_use: "",
