@@ -114,6 +114,5 @@ export default async function fetchUser(
       return "NO_USER_OBJECT";
   }
 
-  if (!user) return "NO_USER_OBJECT";
   return user;
 }
