@@ -16,7 +16,6 @@ export default async function SignIn({
 }) {
   const cookies = await cookiesStore();
   const activeSession = cookies.get("emillioid.active-session")?.value || null;
-  const sessions = cookies.get("emillioid.sessions")?.value.split(",") || [];
 
   const { rurl } = await searchParams;
   if (!rurl) {
