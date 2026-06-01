@@ -1,4 +1,3 @@
-import { relations, sql } from "drizzle-orm";
 import {
   index,
   sqliteTableCreator,
