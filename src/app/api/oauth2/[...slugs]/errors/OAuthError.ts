@@ -4,7 +4,7 @@ export class OAuthError extends Error {
   constructor(
     public code: string,
     public message: string,
-    public state: string,
+    public state?: string,
   ) {
     super(message);
   }

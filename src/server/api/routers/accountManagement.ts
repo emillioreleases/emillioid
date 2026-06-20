@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import z from "zod";
 
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import { oauth2LoginAttempt, user } from "~/server/db/schema";
+import { user } from "~/server/db/schema";
 
 export const accountManagementRouter = createTRPCRouter({
   linkAccountViaBloxlink: protectedProcedure

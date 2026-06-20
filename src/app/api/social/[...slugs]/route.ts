@@ -1,11 +1,15 @@
 import "server-only";
 import Elysia, { t } from "elysia";
+import { ip } from "elysia-ip";
 import * as client from "openid-client";
 import { cacheTag, cacheLife } from "next/cache";
 import { env } from "~/env";
 import { db } from "~/server/db";
-import { verification } from "~/server/db/schema";
+import { session, socialUsers, user, verification } from "~/server/db/schema";
 import { and, eq } from "drizzle-orm";
+import { CompactEncrypt } from "jose";
+
+const encryptSecret = new TextEncoder().encode(env.OAUTH2_TOKEN_ENCRYPT_KEY);
 
 async function discover(): Promise<Record<string, client.Configuration>> {
   const [roblox, discord] = await Promise.all([
@@ -22,6 +26,7 @@ async function discover(): Promise<Record<string, client.Configuration>> {
 }
 
 const app = new Elysia({ prefix: "/api/social" })
+  .use(ip())
   .get(
     "/:idp/login",
     async ({
@@ -37,11 +42,13 @@ const app = new Elysia({ prefix: "/api/social" })
       let code_challenge: string =
         await client.calculatePKCECodeChallenge(code_verifier);
       let state: string = client.randomState();
+      let nonce: string = client.randomNonce();
 
       let parameters: Record<string, string> = {
         redirect_uri: `${process.env.NODE_ENV == "production" ? "https" : "http"}://localhost:3000/api/social/${idp}/callback`,
         scope: idp !== "discord" ? "openid profile" : "openid identify",
         state,
+        nonce,
         code_challenge,
         code_challenge_method: "S256",
       };
@@ -53,13 +60,15 @@ const app = new Elysia({ prefix: "/api/social" })
         expiresAt: new Date(Date.now() + 30 * 60 * 1000),
       });
 
-      let redirectTo: URL = client.buildAuthorizationUrl(authn[idp], {
-        ...parameters,
-      });
+      let redirectTo: URL = client.buildAuthorizationUrl(
+        authn[idp],
+        parameters,
+      );
 
       socialAuth.value = {
         code_challenge,
         state,
+        nonce,
         idp,
       };
 
@@ -78,22 +87,27 @@ const app = new Elysia({ prefix: "/api/social" })
           t.Object({
             code_challenge: t.String(),
             state: t.String(),
+            nonce: t.String(),
             idp: t.String(),
           }),
         ),
       }),
     },
   )
-  .post("/:idp/post-login-action", ({ body }) => {}, {
-    body: t.Object({}),
-  })
   .get(
     "/:idp/callback",
     async ({
       params: { idp },
       query,
       request,
-      cookie: { "emillioid.social-auth": socialAuth },
+      ip,
+      headers,
+      cookie: {
+        "emillioid.is-linking": isLinking,
+        "emillioid.social-auth": socialAuth,
+        "emillioid.session": sessions,
+        "emillioid.flow": flowToken,
+      },
     }) => {
       const authn = await discover();
       if (!authn[idp])
@@ -136,18 +150,100 @@ const app = new Elysia({ prefix: "/api/social" })
           {
             pkceCodeVerifier: codeVerifier.value,
             expectedState: socialAuth.value.state!,
+            expectedNonce:
+              idp !== "discord" ? socialAuth.value.nonce! : undefined,
           },
         );
-        const user = await fetch(
+        const userData = await fetch(
           authn[idp].serverMetadata().userinfo_endpoint!,
           {
             headers: {
               Authorization: `Bearer ${tokenRespond.access_token}`,
             },
           },
-        ).then((res) => res.json());
-        socialAuth.value = undefined;
-        return user;
+        ).then((res) =>
+          res.json<{
+            sub: string;
+            preferred_name: string;
+            name: string;
+            picture: string;
+          }>(),
+        );
+
+        const accountInDb = await db.query.socialUsers.findFirst({
+          columns: {
+            id: true,
+            userId: true,
+          },
+          where(fields, operators) {
+            return operators.and(
+              operators.eq(fields.accountId, userData.sub),
+              operators.eq(fields.accountType, idp as "roblox" | "discord"),
+            );
+          },
+        });
+
+        let uid = accountInDb?.userId;
+
+        if (!accountInDb) {
+          let userDb: typeof user.$inferSelect;
+          if (!isLinking) {
+            userDb = (await db.insert(user).values({}).returning())[0]!;
+          } else {
+            userDb = await db.query.user.findFirst({
+              columns: {
+                id: true,
+              },
+              where(fields, operators) {
+                return operators.eq(fields.id, parseInt(sessions?.value!));
+              },
+            });
+          }
+
+          await db.insert(socialUsers).values({
+            userId: userDb!.id,
+            accountId: userData.sub,
+            accountType: idp as "roblox" | "discord",
+            username: userData.preferred_name,
+            display_name: userData.name,
+            image: userData.picture,
+          });
+
+          uid = userDb[0]!.id;
+        } else {
+          if (isLinking) {
+          } else {
+          }
+        }
+
+        socialAuth.remove();
+
+
+        const sid = crypto.randomUUID();
+
+        const randomText =
+          ip + "|" + headers["user-agent"] + "|" + uid + "|" + sid;
+        const encryptedToken = await new CompactEncrypt(
+          new TextEncoder().encode(randomText),
+        )
+          .setProtectedHeader({ alg: "dir", enc: "A256CBC-HS512" })
+          .encrypt(encryptSecret);
+
+        const newSession = await db
+          .insert(session)
+          .values({
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            userAgent: headers["user-agent"]!,
+            ipAddress: ip || "unknown",
+            userId: uid!,
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            token: encryptedToken,
+            id: sid,
+          })
+          .returning();
+
+        sessions.value = encryptedToken;
       } catch (e) {
         console.error(e);
         return new Response("Failed to exchange code for token", {
@@ -161,16 +257,21 @@ const app = new Elysia({ prefix: "/api/social" })
         state: t.String(),
       }),
       cookie: t.Object({
+        "emillioid.is-linking": t.Optional(t.Boolean()),
         "emillioid.social-auth": t.Optional(
           t.Object({
             code_challenge: t.String(),
             state: t.String(),
+            nonce: t.String(),
             idp: t.String(),
           }),
         ),
+        "emillioid.session": t.Optional(t.String()),
+        "emillioid.flow": t.Optional(t.String()),
       }),
     },
   );
 
 export const GET = app.fetch;
 export const POST = app.fetch;
+export type SocialLoginAPI = typeof app;

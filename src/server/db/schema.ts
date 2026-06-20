@@ -83,9 +83,28 @@ export const flowPopup = createTable("flow_popup", (d) => ({
   saml_request: d.text("saml_request"),
   selected_account: d.text("selected_account").references(() => socialUsers.id),
   status: d.text("status", {
-    enum: ["forced_login", "select_account", "complete"],
+    enum: ["forced_login", "select_account", "consent_needed", "complete"],
   }),
+  client_id: d.text("client_id").references(() => oauth2Client.id),
+  provided_consent: d
+    .integer("provided_consent", { mode: "boolean" })
+    .notNull(),
   session_id: d.text("session_id").references(() => session.id),
+}));
+
+export const flowPopupRelations = relations(flowPopup, ({ one }) => ({
+  selectedAccount: one(socialUsers, {
+    fields: [flowPopup.selected_account],
+    references: [socialUsers.id],
+  }),
+  session: one(session, {
+    fields: [flowPopup.session_id],
+    references: [session.id],
+  }),
+  client: one(oauth2Client, {
+    fields: [flowPopup.client_id],
+    references: [oauth2Client.id],
+  }),
 }));
 
 export const verification = createTable("verification", (d) => ({
@@ -131,10 +150,16 @@ export const oauth2Client = createTable(
     backchannelLogoutUri: d.text("backchannel_logout_uri").notNull(),
     grants: d.text("grants").notNull(),
     homeUrl: d.text("home_url").notNull(),
-    with_discord_direct: d
-      .integer("with_discord_direct", { mode: "boolean" })
+    type: d
+      .text("auth", { mode: "text" })
+      .$type<"iauth" | "oauth2" | "saml2">()
+      .default("oauth2")
+      .notNull(),
+    authentication_methods: d
+      .text("authentication_methods", { mode: "json" })
+      .$type<string[]>()
       .notNull()
-      .$defaultFn(() => false),
+      .$defaultFn(() => ["roblox", "discord"]),
     with_no_staff: d
       .integer("with_no_staff", { mode: "boolean" })
       .notNull()
