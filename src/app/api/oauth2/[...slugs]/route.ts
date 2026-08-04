@@ -4,6 +4,7 @@ import { OAuthPromptTypes, OAuthResponseTypes, OAuthScopes } from "./Enums";
 import { db } from "~/server/db";
 import { approveOAuthRequest, clientValidity, generateToken } from "./helpers";
 import { flowPopup, oauth2LoginSession } from "~/server/db/schema";
+import { env } from "~/env";
 
 const app = new Elysia({ prefix: "/api/oauth2" })
   .error({ OAuthError })
@@ -80,7 +81,7 @@ const app = new Elysia({ prefix: "/api/oauth2" })
                 );
                 return redirect(result);
               } else {
-                return redirect(`/signin?flow=${flow.id}`);
+                return redirect(`${env.BETTER_AUTH_URL}/signin?flow=${flow.id}`);
               }
             }
           }
@@ -126,7 +127,7 @@ const app = new Elysia({ prefix: "/api/oauth2" })
       }
 
       await db.insert(flowPopup).values(flowSetup);
-      return redirect(`/signin?flow=${flowSetup.id}`);
+      return redirect(`${env.BETTER_AUTH_URL}/signin?flow=${flowSetup.id}`);
     },
     {
       transform({ query }) {

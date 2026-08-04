@@ -2,7 +2,6 @@ import "server-only";
 import Elysia, { t } from "elysia";
 import { ip } from "elysia-ip";
 import * as client from "openid-client";
-import { cacheTag, cacheLife } from "next/cache";
 import { env } from "~/env";
 import { db } from "~/server/db";
 import { session, socialUsers, user, verification } from "~/server/db/schema";
@@ -186,16 +185,31 @@ const app = new Elysia({ prefix: "/api/social" })
         let uid = accountInDb?.userId;
 
         if (!accountInDb) {
-          let userDb: typeof user.$inferSelect;
+          let userDb: { id: string } | undefined;
           if (!isLinking) {
-            userDb = (await db.insert(user).values({}).returning())[0]!;
+            userDb = (
+              await db.insert(user).values({}).returning({ id: user.id })
+            )[0]!;
           } else {
+            const session = await db.query.session.findFirst({
+              columns: {
+                userId: true,
+              },
+              where(fields, operators) {
+                return operators.eq(fields.token, sessions?.value!);
+              },
+            });
+
+            if (!session) {
+              return new Response("No session found", { status: 400 });
+            }
+
             userDb = await db.query.user.findFirst({
               columns: {
                 id: true,
               },
               where(fields, operators) {
-                return operators.eq(fields.id, parseInt(sessions?.value!));
+                return operators.eq(fields.id, session.userId);
               },
             });
           }
@@ -209,7 +223,7 @@ const app = new Elysia({ prefix: "/api/social" })
             image: userData.picture,
           });
 
-          uid = userDb[0]!.id;
+          uid = userDb!.id;
         } else {
           if (isLinking) {
           } else {
@@ -217,7 +231,6 @@ const app = new Elysia({ prefix: "/api/social" })
         }
 
         socialAuth.remove();
-
 
         const sid = crypto.randomUUID();
 
