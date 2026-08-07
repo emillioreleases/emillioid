@@ -177,18 +177,25 @@ export async function linkViaTPBloxlink() {
             },
         });
 
-        if (socialUser) {
-            return {
-                status: "error",
-                message: "This Roblox account is already linked to another EmillioID account.",
-            };
-        }
+        const [rbxUserData, thumbnailData] = await Promise.all([
+            fetch(`https://users.roblox.com/v1/users/${bloxlinkFetch.robloxID}`).then((res) => res.json<{ id: number; name: string; displayName: string; }>()),
+            fetch(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${bloxlinkFetch.robloxID}&size=150x150&format=Png&isCircular=false`).then((res) => res.json<{ data: { imageUrl: string; }[]; }>()),
+        ]);
 
-        await db.insert(socialUsers).values({
+        const payload: typeof socialUsers.$inferInsert = {
             userId: flowData.session!.userId,
             accountType: "roblox",
             accountId: bloxlinkFetch.robloxID,
-        });
+            display_name: rbxUserData.displayName || null,
+            username: rbxUserData.name || null,
+            image: thumbnailData.data[0]?.imageUrl || null,
+        }
+
+        if (socialUser) {
+            await db.update(socialUsers).set(payload).where(eq(socialUsers.id, socialUser.id));
+        } else {
+            await db.insert(socialUsers).values(payload);
+        }
     } catch (e) {
         console.error("Error linking via Bloxlink:", e);
         return {
