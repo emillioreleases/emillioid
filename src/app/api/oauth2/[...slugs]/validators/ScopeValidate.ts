@@ -1,7 +1,6 @@
 // src/validators/tagValidator.ts
-import { ValidationError } from "elysia";
 import { OAuthScopes, type OAuthScopesValue } from "../Enums";
-import { OAuthError } from "../OAuthError";
+import { OAuthError } from "../errors/OAuthError";
 /**
  * Turn "?tags=foo+bar baz" → ["foo","bar","baz"]
  */
