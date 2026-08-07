@@ -79,17 +79,27 @@ export async function approveOAuthRequest(
   let followupData: typeof oauth2LoginSession.$inferSelect | undefined;
 
   for (const responseType of query.response_type) {
+    console.log("responseType", responseType);
     switch (responseType) {
       case OAuthResponseTypes.Code:
         data.authorization_code = await generateToken(query, session, "ac");
         uriEncodedStrings.set("code", data.authorization_code);
+        break;
       case OAuthResponseTypes.Token:
         data.access_token = await generateToken(query, session, "at");
         uriEncodedStrings.set("access_token", data.access_token);
         uriEncodedStrings.set("token_type", "Bearer");
+        break;
       case OAuthResponseTypes.IDToken:
         data.id_token = await generateIDToken(client, userData, session);
         uriEncodedStrings.set("id_token", data.id_token);
+        break;
+      default:
+        throw new OAuthError(
+          "unsupported_response_type",
+          "Response type is not supported.",
+          query.state,
+        );
     }
   }
 

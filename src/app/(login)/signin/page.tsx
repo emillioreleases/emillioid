@@ -6,6 +6,10 @@ import { InvalidFlow } from "~/app/_components/invalid-flow";
 import RobloxLink from "./prompts/roblox-link";
 import { jwtVerify } from "jose";
 import { env } from "~/env";
+import type { FlowAttestationPayload } from "~/utils/types";
+import { AccountSelectPrompt } from "./prompts/account-select";
+import { redirect, RedirectType } from "next/navigation";
+import { RedirectUser } from "./prompts/redirect-user";
 
 export default async function SignIn({
   searchParams,
@@ -14,15 +18,11 @@ export default async function SignIn({
 }) {
   const [cookieStore, { flow }] = await Promise.all([cookies(), searchParams]);
 
-  if (!flow || !cookieStore.has("emillioid.flow") || cookieStore.get("emillioid.flow")?.value !== flow) {
+  if (!flow || !cookieStore.has("emillioid.flow-attestation")) {
     return <InvalidFlow />;
   }
 
-  if (!cookieStore.has("emillioid.flow-attestation")) {
-    return <InvalidFlow />;
-  }
-
-  const verifyToken = await jwtVerify(
+  const verifyToken = await jwtVerify<FlowAttestationPayload>(
     cookieStore.get("emillioid.flow-attestation")!.value,
     new TextEncoder().encode(env.BETTER_AUTH_SECRET),
     {
@@ -30,13 +30,16 @@ export default async function SignIn({
     }
   ).catch(() => null);
 
-  if (!verifyToken || !verifyToken.payload || verifyToken.payload.flow !== flow) {
+  console.log("verifyToken", verifyToken);
+
+  if (!verifyToken || verifyToken.payload.flow != flow) {
     return <InvalidFlow />;
   }
 
   const flowData = await db.query.flowPopup.findFirst({
     columns: {
       status: true,
+      returnUrl: true,
     },
     where(fields, operators) {
       return operators.eq(fields.id, flow);
@@ -45,6 +48,7 @@ export default async function SignIn({
       client: true,
       session: {
         columns: {
+          userId: true,
           token: true,
         },
       }
@@ -55,7 +59,7 @@ export default async function SignIn({
     return <InvalidFlow />;
   }
 
-  if (cookieStore.get("emillioid.session")?.value !== flowData.session?.token) {
+  if (cookieStore.has("emillioid.session") && cookieStore.get("emillioid.session")?.value !== flowData.session?.token) {
     return <InvalidFlow />;
   }
 
@@ -67,8 +71,23 @@ export default async function SignIn({
         </LoginTemplate>
       );
     case "select_account":
-      return <LoginTemplate title="Select an account" description={`Please select an account to continue to ${flowData?.client?.name || "your applications."}.`} />
-      ;
+      const socialUsers = await db.query.socialUsers.findMany({
+        columns: {
+          accountType: true,
+          accountId: true,
+          display_name: true,
+          username: true,
+          image: true,
+        },
+        where(fields, operators) {
+          return operators.eq(fields.userId, flowData.session!.userId);
+        },
+      });
+      return (
+        <LoginTemplate title="Select an account" description={`Please select an account to continue to ${flowData?.client?.name || "your applications."}.`}>
+          <AccountSelectPrompt accounts={socialUsers} />
+        </LoginTemplate>
+      );
     case "link_account":
       return <LoginTemplate title="Link an account" description={`Please link an account to continue to ${flowData?.client?.name || "your applications."}.`}>
         <RobloxLink clientName={flowData?.client?.name!} challenge={flow} />
@@ -78,7 +97,8 @@ export default async function SignIn({
       return <LoginTemplate title="Consent needed" description={`Please provide consent to continue to ${flowData?.client?.name || "your applications."}.`} />
       ;
     case "complete":
-      return <LoginTemplate title="Complete" description={`You have completed the flow for ${flowData?.client?.name || "your applications."}.`} />
-      ;
+      return <LoginTemplate title="One moment please" description={`We're redirecting you to ${flowData?.client?.name || "your applications."}. Please wait.`}>
+        <RedirectUser returnUrl={flowData.returnUrl || "/"} />
+      </LoginTemplate>;
   }
 }

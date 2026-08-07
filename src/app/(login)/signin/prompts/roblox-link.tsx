@@ -1,10 +1,9 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { api } from "~/trpc/react";
-import LoginTemplate from "../login-template";
+import { useState } from "react";
 import { W95Font, W95FontBold } from "~/app/fonts";
 import { cn } from "~/lib/utils";
+import { linkViaTPBloxlink } from "~/utils/server-actions";
 
 export default function RobloxLink({
   clientName,
@@ -25,10 +24,9 @@ export default function RobloxLink({
         This proccess will require you to link your Roblox account to your EmillioID account.
       </p>
       <>
-        {!success ? (
           <>
             {errors.map((e, i) => (
-              <div className="text-red-500" key={i}>
+              <div className={cn("text-red-500 text-left w-full", W95Font.className)} key={i}>
                 {e}
               </div>
             ))}
@@ -79,7 +77,17 @@ export default function RobloxLink({
               <div className="flex w-full flex-col space-y-2 text-left">
                 <button
                   className="flex w-full border-t-2 border-r-2 border-b-2 border-l-2 border-t-white border-r-black border-b-black border-l-white bg-[#c3c3c3] active:border-t-4 active:border-t-black active:border-r-white active:border-b-white active:border-l-black"
-                  onClick={() => { }}
+                  onClick={async() => {
+                    setButtonsEnabled(false);
+                    const data = await linkViaTPBloxlink();
+                    if (data.status == "error") {
+                      setErrors([data.message]);
+                    } else {
+                      setSuccess(true);
+                      router.refresh();
+                    }
+                    setButtonsEnabled(true);
+                  }}
                   disabled={!buttonsEnabled}
                 >
                   <div
@@ -89,10 +97,10 @@ export default function RobloxLink({
                     }
                   >
                     <span className={"text-lg " + W95FontBold.className}>
-                      {"Bloxlink (BCPS USERS)"}
+                      {"Bloxlink (ER USERS)"}
                     </span>
                     <span className="text-sm">
-                      Connect your Roblox account to myBCPS
+                      Connect your Roblox account to EmillioID
                     </span>
                   </div>
                 </button>
@@ -114,28 +122,12 @@ export default function RobloxLink({
                 </div>
               </button>
             )}
+            {success && (
+              <p className="text-center text-white">
+                We successfully linked your Roblox account to your EmillioID account. Please wait.
+              </p>
+            )}
           </>
-        ) : (
-          <>
-            <div className="flex w-full flex-col items-center justify-center space-y-4 sm:h-fit">
-              <div className="flex flex-col items-center justify-center">
-                <h1 className="text-2xl font-bold text-white">
-                  Linking your account...
-                </h1>
-                <h5 className="text-sm text-gray-400">
-                  Please wait while we link your account.
-                </h5>
-              </div>
-              <div className="flex w-full flex-col space-y-2 text-left">
-                <div className="flex w-full flex-col items-center justify-center space-y-2">
-                  <div className="h-auto w-[0.1px] border-[0.05px] border-white" />
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={"/auth-logos/roblox.svg"} alt={"Logo"} />
-                </div>
-              </div>
-            </div>
-          </>
-        )}
       </>
     </>
   );

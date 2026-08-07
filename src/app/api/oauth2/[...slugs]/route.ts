@@ -5,7 +5,10 @@ import { db } from "~/server/db";
 import { approveOAuthRequest, clientValidity, generateToken } from "./helpers";
 import { flowPopup, oauth2LoginSession } from "~/server/db/schema";
 import { env } from "~/env";
-import { SignJWT } from "jose";
+import { jwtVerify, SignJWT } from "jose";
+import type { FlowAttestationPayload } from "~/utils/types";
+import { CalculateNextStage } from "~/utils/calculate-next-stage";
+import { eq } from "drizzle-orm";
 
 const app = new Elysia({ prefix: "/api/oauth2" })
   .error({ OAuthError })
@@ -44,7 +47,6 @@ const app = new Elysia({ prefix: "/api/oauth2" })
       redirect,
       request,
       cookie: {
-        "emillioid.flow": flowCookie,
         "emillioid.flow-attestation": flowAttestationCookie,
         "emillioid.session": sessionCookie,
       },
@@ -52,38 +54,50 @@ const app = new Elysia({ prefix: "/api/oauth2" })
       const [authSession, additionalClientInfo] = await Promise.all([
         sessionCookie.value
           ? db.query.session.findFirst({
-              where(fields, operators) {
-                return operators.eq(fields.token, sessionCookie.value!);
-              },
-            })
+            where(fields, operators) {
+              return operators.eq(fields.token, sessionCookie.value!);
+            },
+          })
           : null,
         clientValidity(query),
       ]);
 
       if (sessionCookie.value && authSession) {
-        if (flowCookie.value) {
-          const flow = await db.query.flowPopup.findFirst({
-            where(fields, operators) {
-              return operators.eq(fields.id, flowCookie.value!);
-            },
-          });
+        if (flowAttestationCookie.value) {
+          const verifyToken = await jwtVerify<FlowAttestationPayload>(
+            flowAttestationCookie.value,
+            new TextEncoder().encode(env.BETTER_AUTH_SECRET),
+            {
+              issuer: env.BETTER_AUTH_URL,
+            }
+          ).catch(() => null);
 
-          if (flow) {
-            if (
-              flow.returnUrl ==
+          if (verifyToken) {
+            const flow = await db.query.flowPopup.findFirst({
+              where(fields, operators) {
+                return operators.eq(fields.id, verifyToken.payload.flow);
+              },
+            });
+
+            if (flow) {
+              if (
+                flow.returnUrl ==
                 new URL(request.url).pathname + new URL(request.url).search &&
-              flow.session_id == authSession.id
-            ) {
-              if (flow.status == "complete") {
-                const result = await approveOAuthRequest(
-                  query,
-                  additionalClientInfo,
-                  flow,
-                  authSession,
-                );
-                return redirect(result);
-              } else {
-                return redirect(`${env.BETTER_AUTH_URL}/signin?flow=${flow.id}`);
+                flow.session_id == authSession.id
+              ) {
+                if (flow.status == "complete") {
+                  const result = await approveOAuthRequest(
+                    query,
+                    additionalClientInfo,
+                    flow,
+                    authSession,
+                  );
+                  await db.delete(flowPopup)
+                    .where(eq(flowPopup.id, flow.id));
+                  return redirect(result);
+                } else {
+                  return redirect(`${env.BETTER_AUTH_URL}/signin?flow=${flow.id}`);
+                }
               }
             }
           }
@@ -107,15 +121,20 @@ const app = new Elysia({ prefix: "/api/oauth2" })
         }
       }
 
-      const flowSetup: typeof flowPopup.$inferInsert = {
+      const flowSetup: typeof flowPopup.$inferSelect = {
         id: crypto.randomUUID(),
         client_id: query.client_id,
         returnUrl: new URL(request.url).pathname + new URL(request.url).search,
         provided_consent: hasConsent
           ? hasConsent
           : !additionalClientInfo.consentNeeded,
+        saml_request: null,
+        selected_account: null,
+        session_id: authSession ? authSession.id : null,
         status: "forced_login"
       };
+
+      authSession ? flowSetup.status = await CalculateNextStage(flowSetup, additionalClientInfo) : null;
 
       switch (query.prompt) {
         case OAuthPromptTypes.None:
@@ -125,8 +144,10 @@ const app = new Elysia({ prefix: "/api/oauth2" })
             query.state,
           );
         case OAuthPromptTypes.Consent:
-          flowSetup.provided_consent = false;
-          flowSetup.status = "consent_needed";
+          if (flowSetup.status !== "link_account") {
+            flowSetup.provided_consent = false;
+            flowSetup.status = "consent_needed";
+          }
         case OAuthPromptTypes.SelectAccount:
           flowSetup.status = "select_account";
         case OAuthPromptTypes.Login || !authSession:
@@ -134,14 +155,6 @@ const app = new Elysia({ prefix: "/api/oauth2" })
       }
 
       await db.insert(flowPopup).values(flowSetup).returning();
-
-      flowCookie.set({
-        secure: process.env.NODE_ENV === "production",
-        value: flowSetup.id,
-        httpOnly: true,
-        path: '/',
-        maxAge: 30 * 60,
-      });
 
       flowAttestationCookie.set({
         secure: process.env.NODE_ENV === "production",
@@ -215,7 +228,6 @@ const app = new Elysia({ prefix: "/api/oauth2" })
       }),
       cookie: t.Object({
         "emillioid.session": t.Optional(t.String()),
-        "emillioid.flow": t.Optional(t.String()),
         "emillioid.flow-attestation": t.Optional(t.String()),
       }),
     },
@@ -223,16 +235,18 @@ const app = new Elysia({ prefix: "/api/oauth2" })
   .post(
     "/token",
     async ({ body }) => {
+      console.log(body)
       const client = await db.query.oauth2Client.findFirst({
         columns: {
           id: true,
+          clientSecret: true,
         },
         where(fields, operators) {
           return operators.and(
-            operators.eq(fields.id, body.get("client_id")?.toString()!),
+            operators.eq(fields.id, body.client_id?.toString()!),
             operators.eq(
               fields.clientSecret,
-              body.get("client_secret")?.toString()!,
+              body.client_secret?.toString()!,
             ),
           );
         },
@@ -242,7 +256,70 @@ const app = new Elysia({ prefix: "/api/oauth2" })
         throw new OAuthError("invalid_grant", "Invalid client credentials.");
       }
 
-      switch (body.get("grant_type")) {
+      switch (body.grant_type) {
+        case "authorization_code":
+          const [oauth2SessionData] = await db.batch([
+            db.query.oauth2LoginSession.findFirst({
+              where(fields, operators) {
+                return operators.and(
+                  operators.eq(fields.authorization_code, body.code?.toString()!),
+                  operators.eq(fields.client_id, client.id),
+                  operators.gt(
+                    fields.created_at,
+                    new Date(Date.now() - 300 * 1000),
+                  ),
+                );
+              },
+            })
+          ]);
+
+          if (!client) {
+            throw new OAuthError("invalid_client", "Client not found.");
+          }
+
+          if (client.clientSecret !== body.client_secret?.toString()) {
+            throw new OAuthError(
+              "invalid_client",
+              "Invalid client credentials.",
+            );
+          }
+
+          if (!oauth2SessionData) {
+            throw new OAuthError("invalid_grant", "Invalid authorization code.");
+          }
+
+          const sessionData = await db.query.session.findFirst({
+            where(fields, operators) {
+              return operators.eq(fields.id, oauth2SessionData?.session_id!);
+            },
+          });
+
+          if (!sessionData) {
+            throw new Error("Something went wrong fetching parent session.");
+          }
+
+          const responseFinal = {
+            access_token: await generateToken(
+              { client_id: oauth2SessionData.client_id },
+              sessionData,
+              "at",
+            ),
+            token_type: "Bearer",
+            expires_in: 3600,
+            refresh_token: await generateToken(
+              { client_id: oauth2SessionData.client_id },
+              sessionData,
+              "rt",
+            ),
+          };
+
+          await db.update(oauth2LoginSession).set({
+            access_token: responseFinal.access_token,
+            refresh_token: responseFinal.refresh_token,
+            authorization_code: null,
+          });
+
+          return Response.json(responseFinal);
         case "refresh_token":
           const oauth2Session = await db.query.oauth2LoginSession.findFirst({
             where(fields, operators) {
@@ -250,7 +327,7 @@ const app = new Elysia({ prefix: "/api/oauth2" })
                 operators.eq(fields.client_id, client.id),
                 operators.eq(
                   fields.refresh_token,
-                  body.get("refresh_token")?.toString()!,
+                  body.refresh_token?.toString()!,
                 ),
                 operators.gt(
                   fields.updated_at,
@@ -294,23 +371,29 @@ const app = new Elysia({ prefix: "/api/oauth2" })
             refresh_token: response.refresh_token,
           });
           return Response.json(response);
+        default:
+          throw new OAuthError(
+            "unsupported_grant_type",
+            "Grant type is not supported.",
+          );
       }
     },
     {
       body: t.Union([
-        t.Form({
+        t.Object({
           grant_type: t.Literal("refresh_token"),
           client_id: t.String(),
           client_secret: t.String(),
           refresh_token: t.String(),
         }),
-        t.Form({
+        t.Object({
           grant_type: t.Literal("authorization_code"),
           code: t.String(),
           client_id: t.String(),
           client_secret: t.String(),
         }),
       ]),
+      parse: "application/x-www-form-urlencoded"
     },
   );
 
