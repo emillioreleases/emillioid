@@ -12,18 +12,23 @@ RUN bun i --frozen-lockfile
 
 ##### BUILDER
 
-FROM oven/bun:alpine AS builder
+FROM oven/bun:alpine AS builderInstall
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json .
+COPY bun.lock .
+RUN bun i -d
+
+FROM node:alpine AS builder
 ARG DATABASE_URL
 ARG NEXT_PUBLIC_CLIENTVAR
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+COPY --from=builderInstall /app/node_modules ./node_modules
 COPY . .
 
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
-
-RUN bun i -d
-RUN SKIP_ENV_VALIDATION=1 bun run build
+RUN SKIP_ENV_VALIDATION=1 npm run build
 
 ##### RUNNER
 
