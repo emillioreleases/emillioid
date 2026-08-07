@@ -6,11 +6,15 @@ import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 
 import "./src/env.js";
 
-initOpenNextCloudflareForDev();
+initOpenNextCloudflareForDev()
 
 /** @type {import("next").NextConfig} */
 const config = {
+  cacheComponents: true,
   serverExternalPackages: ["@libsql/isomorphic-ws"],
+  experimental: {
+    useTypeScriptCli: true,
+  },
 };
 
 export default config;

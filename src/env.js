@@ -18,6 +18,7 @@ export const env = createEnv({
     AF_SECRET: z.string(),
     BETTER_AUTH_SECRET: z.string(),
     BETTER_AUTH_URL: z.string().url(),
+    BLOXLINK_API_KEY: z.string(),
     DATABASE_URL: z.string().url(),
     DATABASE_TOKEN: z.string(),
     NODE_ENV: z
@@ -25,6 +26,7 @@ export const env = createEnv({
       .default("development"),
     OAUTH2_TOKEN_SIGN_KEY: z.string(),
     OAUTH2_TOKEN_ENCRYPT_KEY: z.string(),
+    SOCIAL_AUTH_REDIRECT_BASE_URL: z.string().url(),
   },
 
   /**
@@ -52,11 +54,13 @@ export const env = createEnv({
     AF_SECRET: process.env.AF_SECRET,
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
     BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
+    BLOXLINK_API_KEY: process.env.BLOXLINK_API_KEY,
     DATABASE_URL: process.env.DATABASE_URL,
     DATABASE_TOKEN: process.env.DATABASE_TOKEN,
     NODE_ENV: process.env.NODE_ENV,
     OAUTH2_TOKEN_SIGN_KEY: process.env.OAUTH2_TOKEN_SIGN_KEY,
     OAUTH2_TOKEN_ENCRYPT_KEY: process.env.OAUTH2_TOKEN_ENCRYPT_KEY,
+    SOCIAL_AUTH_REDIRECT_BASE_URL: process.env.SOCIAL_AUTH_REDIRECT_BASE_URL,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

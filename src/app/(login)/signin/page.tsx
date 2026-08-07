@@ -1,157 +1,103 @@
-import Image from "next/image";
-import { auth } from "~/server/auth";
-import { headers as headersStore } from "next/headers";
+import { cookies } from "next/headers";
 import SSOButtons from "./sso-buttons";
-import RobloxLink from "./prompts/roblox-link";
-import { redirect } from "next/navigation";
-import { api } from "~/trpc/server";
-import SigningIn from "./signing-in";
 import LoginTemplate from "./login-template";
 import { db } from "~/server/db";
 import { InvalidFlow } from "~/app/_components/invalid-flow";
+import RobloxLink from "./prompts/roblox-link";
+import { jwtVerify } from "jose";
+import { env } from "~/env";
+import type { FlowAttestationPayload } from "~/utils/types";
+import { AccountSelectPrompt } from "./prompts/account-select";
+import { RedirectUser } from "./prompts/redirect-user";
 
 export default async function SignIn({
   searchParams,
 }: {
   searchParams: Promise<{ flow: string | undefined }>;
 }) {
-  const headers = await headersStore();
-  const [session, ms] = await Promise.all([
-    auth.api.getSession({
-      headers,
-    }),
-    auth.api.listDeviceSessions({
-      headers,
-    }),
-  ]);
+  const [cookieStore, { flow }] = await Promise.all([cookies(), searchParams]);
 
-  const sp = await searchParams;
+  if (!flow || !cookieStore.has("emillioid.flow-attestation")) {
+    return <InvalidFlow />;
+  }
 
-  const canLogin = await api.login.canLogin(sp.flow);
+  const verifyToken = await jwtVerify<FlowAttestationPayload>(
+    cookieStore.get("emillioid.flow-attestation")!.value,
+    new TextEncoder().encode(env.BETTER_AUTH_SECRET),
+    {
+      issuer: env.BETTER_AUTH_URL,
+    }
+  ).catch(() => null);
 
-  let client;
-  let prompt;
-  if (sp.flow) {
-    const yes = await db.query.oauth2LoginAttempt.findFirst({
-      columns: {
-        promptBypass: true,
-      },
-      where(fields, operators) {
-        return operators.eq(fields.id, sp.flow!);
-      },
-    });
+  console.log("verifyToken", verifyToken);
 
-    if (!yes) return <InvalidFlow />;
+  if (!verifyToken || verifyToken.payload.flow != flow) {
+    return <InvalidFlow />;
+  }
 
-    [client, prompt] = await Promise.all([
-      api.oauth2.getClientDetails(sp.flow),
-      api.oauth2.getStage(sp.flow),
-    ]);
+  const flowData = await db.query.flowPopup.findFirst({
+    columns: {
+      status: true,
+      returnUrl: true,
+    },
+    where(fields, operators) {
+      return operators.eq(fields.id, flow);
+    },
+    with: {
+      client: true,
+      session: {
+        columns: {
+          userId: true,
+          token: true,
+        },
+      }
+    },
+  });
 
-    if (!client || !prompt) {
+  if (!flowData) {
+    return <InvalidFlow />;
+  }
+
+  if (cookieStore.has("emillioid.session") && cookieStore.get("emillioid.session")?.value !== flowData.session?.token) {
+    return <InvalidFlow />;
+  }
+
+  switch (flowData.status) {
+    case "forced_login":
       return (
-        <>
-          <header className="-mx-4 -mt-6 -mb-3 flex min-w-full items-stretch justify-center space-x-2 p-4">
-            <Image src={"/logo.png"} alt={"Logo"} width={100} height={75} />
-          </header>
-          <div>Something went wrong! Please contact the IT department.</div>
-        </>
+        <LoginTemplate title="Sign in" description={`Please sign in to continue to ${flowData?.client?.name || "your applications."}.`}>
+          <SSOButtons />
+        </LoginTemplate>
       );
-    }
-
-    const login_challenge = sp.flow;
-    if (session?.user) {
-      if (!canLogin.verdict && (!prompt || yes?.promptBypass)) {
-        switch (canLogin.message) {
-          case "NO_STAFF":
-            return (
-              <LoginTemplate
-                title="Login not allowed"
-                description="You cannot use your employee credentials to login to this site. Please log out and try again."
-              />
-            );
-          case "NO_ROBLOX_ACCOUNT":
-            return (
-              <RobloxLink
-                clientName={client.name ?? "My Apps"}
-                challenge={login_challenge}
-              />
-            );
-        }
-      } else {
-        return (
-          <SigningIn
-            login_challenge={login_challenge}
-            prompt={prompt}
-            promptBypass={yes?.promptBypass}
-            clientName={client.name ?? "My Apps"}
-            discordDirect={client.with_discord_direct}
-            sessions={[
-              session,
-              ...ms
-                .filter((s) => s.session.id !== session.session.id)
-                .map((s) => s),
-            ]}
-          />
-        );
-      }
-    }
+    case "select_account":
+      const socialUsers = await db.query.socialUsers.findMany({
+        columns: {
+          accountType: true,
+          accountId: true,
+          display_name: true,
+          username: true,
+          image: true,
+        },
+        where(fields, operators) {
+          return operators.eq(fields.userId, flowData.session!.userId);
+        },
+      });
+      return (
+        <LoginTemplate title="Select an account" description={`Please select an account to continue to ${flowData?.client?.name || "your applications."}.`}>
+          <AccountSelectPrompt accounts={socialUsers} />
+        </LoginTemplate>
+      );
+    case "link_account":
+      return <LoginTemplate title="Link an account" description={`Please link an account to continue to ${flowData?.client?.name || "your applications."}.`}>
+        <RobloxLink />
+      </LoginTemplate>
+      ;
+    case "consent_needed":
+      return <LoginTemplate title="Consent needed" description={`Please provide consent to continue to ${flowData?.client?.name || "your applications."}.`} />
+      ;
+    case "complete":
+      return <LoginTemplate title="One moment please" description={`We're redirecting you to ${flowData?.client?.name || "your applications."}. Please wait.`}>
+        <RedirectUser returnUrl={flowData.returnUrl || "/"} />
+      </LoginTemplate>;
   }
-  if (session?.user) {
-    if (!canLogin.verdict && !prompt) {
-      switch (canLogin.message) {
-        case "NO_STAFF":
-          return (
-            <LoginTemplate
-              title={"Login Not Allowed"}
-              description={
-                "You cannot use your employee credentials to login to this site. Please log out and try again."
-              }
-            />
-          );
-        case "NO_ROBLOX_ACCOUNT":
-          return (
-            <RobloxLink
-              clientName={client?.name ?? "My Apps"}
-              challenge={sp.flow!}
-            />
-          );
-      }
-    } else {
-    }
-    redirect("/portal");
-  }
-  if (prompt) {
-    switch (prompt) {
-      case "login":
-        return (
-          <LoginTemplate
-            title={"Welcome!"}
-            description={
-              <>
-                Please login to continue to{" "}
-                <span className="font-bold">{client?.name ?? "My Apps"}</span>
-              </>
-            }
-            havePtLinks
-          >
-            <SSOButtons withBypassRedirect />
-          </LoginTemplate>
-        );
-    }
-  }
-  return (
-    <LoginTemplate
-      title={"Welcome!"}
-      description={
-        <>
-          Please login to continue to{" "}
-          <span className="font-bold">{client?.name ?? "My Apps"}</span>
-        </>
-      }
-      havePtLinks
-    >
-      <SSOButtons />
-    </LoginTemplate>
-  );
 }

@@ -23,14 +23,14 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geist.variable}`}>
       <body
-        className="dark h-[100vh] bg-cover bg-center bg-repeat text-left text-white"
+        className="dark h-screen bg-cover bg-center bg-repeat text-left text-white"
         style={{
           backgroundImage:
             "url('https://directus.bloxvalschools.com/assets/25fc5f22-e187-48df-a483-259ddc1238e7?format=webp')",
         }}
       >
         <TRPCReactProvider>
-          <div className="fixed top-0 z-50 flex h-[100vh] w-[100vw] items-center justify-center bg-black/75">
+          <div className="fixed top-0 z-50 flex h-screen w-screen items-center justify-center bg-black/75">
             {children}
           </div>
         </TRPCReactProvider>

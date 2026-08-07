@@ -1,10 +1,10 @@
-import { sql } from "drizzle-orm";
+import { relations } from "drizzle-orm";
 import {
   index,
   sqliteTableCreator,
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
-import type { JWK } from "jose";
+import { type importJWK, type JWK } from "jose";
 
 /**
  * This is an example of how to use the multi-project schema feature of Drizzle ORM. Use the same
@@ -16,44 +16,14 @@ export const createTable = sqliteTableCreator(
   (name) => `bcps-orylogin_${name}`,
 );
 
-export const posts = createTable(
-  "post",
-  (d) => ({
-    id: d.integer({ mode: "number" }).primaryKey({ autoIncrement: true }),
-    name: d.text({ length: 256 }),
-    createdById: d
-      .text({ length: 255 })
-      .notNull()
-      .references(() => user.id),
-    createdAt: d
-      .integer({ mode: "timestamp" })
-      .default(sql`(unixepoch())`)
-      .notNull(),
-    updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
-  }),
-  (t) => [
-    index("created_by_idx").on(t.createdById),
-    index("name_idx").on(t.name),
-  ],
-);
-
 export const user = createTable(
   "user",
   (d) => ({
-    id: d.text("id").primaryKey(),
-    name: d.text("name").notNull(),
-    email: d.text("email").notNull().unique(),
-    emailVerified: d
-      .integer("email_verified", { mode: "boolean" })
-      .$defaultFn(() => false)
-      .notNull(),
-    image: d.text("image"),
-    connectedRobloxAccount: d.text("connected_roblox_account"),
+    id: d
+      .text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
     groups: d.text("groups").default(JSON.stringify([])).notNull(),
-    verifiedWanted: d
-      .integer("verified_wanted", { mode: "boolean" })
-      .$defaultFn(() => false)
-      .notNull(),
     createdAt: d
       .integer("created_at", { mode: "timestamp" })
       .$defaultFn(() => /* @__PURE__ */ new Date())
@@ -63,8 +33,38 @@ export const user = createTable(
       .$defaultFn(() => /* @__PURE__ */ new Date())
       .notNull(),
   }),
-  (t) => [index("user_id_idx").on(t.id), index("user_email_idx").on(t.email)],
+  (t) => [index("user_id_idx").on(t.id)],
 );
+
+export const userRelations = relations(user, ({ many }) => ({
+  socialUsers: many(socialUsers),
+}))
+
+
+export const socialUsers = createTable("social_users", (d) => ({
+  id: d
+    .text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  userId: d
+    .text("user_id")
+    .references(() => user.id, { onDelete: "cascade" })
+    .notNull(),
+  accountType: d
+    .text("account_type", { enum: ["roblox", "discord"] })
+    .notNull(),
+  accountId: d.text("account_id").notNull(),
+  display_name: d.text("display_name"),
+  username: d.text("username"),
+  image: d.text("image"),
+}));
+
+export const socialUsersRelations = relations(socialUsers, ({ one }) => ({
+  user: one(user, {
+    fields: [socialUsers.userId],
+    references: [user.id],
+  }),
+}));
 
 export const session = createTable(
   "session",
@@ -80,11 +80,6 @@ export const session = createTable(
       .text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    orySessions: d.text("ory_sessions").default(JSON.stringify([])).notNull(),
-    oryClientSessions: d
-      .text("ory_client_sessions")
-      .default(JSON.stringify([]))
-      .notNull(),
   }),
   (t) => [
     index("session_id_idx").on(t.id),
@@ -92,32 +87,45 @@ export const session = createTable(
   ],
 );
 
-export const account = createTable(
-  "account",
-  (d) => ({
-    id: d.text("id").primaryKey(),
-    accountId: d.text("account_id").notNull(),
-    providerId: d.text("provider_id").notNull(),
-    userId: d
-      .text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    accessToken: d.text("access_token"),
-    refreshToken: d.text("refresh_token"),
-    idToken: d.text("id_token"),
-    accessTokenExpiresAt: d.integer("access_token_expires_at", {
-      mode: "timestamp",
-    }),
-    refreshTokenExpiresAt: d.integer("refresh_token_expires_at", {
-      mode: "timestamp",
-    }),
-    scope: d.text("scope"),
-    password: d.text("password"),
-    createdAt: d.integer("created_at", { mode: "timestamp" }).notNull(),
-    updatedAt: d.integer("updated_at", { mode: "timestamp" }).notNull(),
+export const sessionRelations = relations(session, ({ one }) => ({
+  user: one(user, {
+    fields: [session.userId],
+    references: [user.id],
   }),
-  (t) => [index("account_user_id_idx").on(t.userId)],
-);
+}));
+
+export const flowPopup = createTable("flow_popup", (d) => ({
+  id: d
+    .text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  returnUrl: d.text("return_url").notNull(),
+  saml_request: d.text("saml_request"),
+  selected_account: d.text("selected_account").references(() => socialUsers.id, { onDelete: "set null" }),
+  status: d.text("status", {
+    enum: ["forced_login", "select_account", "link_account", "consent_needed", "complete"],
+  }),
+  client_id: d.text("client_id").references(() => oauth2Client.id),
+  provided_consent: d
+    .integer("provided_consent", { mode: "boolean" })
+    .notNull(),
+  session_id: d.text("session_id").references(() => session.id, { onDelete: "cascade" }),
+}));
+
+export const flowPopupRelations = relations(flowPopup, ({ one }) => ({
+  selectedAccount: one(socialUsers, {
+    fields: [flowPopup.selected_account],
+    references: [socialUsers.id],
+  }),
+  session: one(session, {
+    fields: [flowPopup.session_id],
+    references: [session.id],
+  }),
+  client: one(oauth2Client, {
+    fields: [flowPopup.client_id],
+    references: [oauth2Client.id],
+  }),
+}));
 
 export const verification = createTable("verification", (d) => ({
   id: d.text("id").primaryKey(),
@@ -162,10 +170,16 @@ export const oauth2Client = createTable(
     backchannelLogoutUri: d.text("backchannel_logout_uri").notNull(),
     grants: d.text("grants").notNull(),
     homeUrl: d.text("home_url").notNull(),
-    with_discord_direct: d
-      .integer("with_discord_direct", { mode: "boolean" })
+    type: d
+      .text("auth", { mode: "text" })
+      .$type<"iauth" | "oauth2" | "saml2">()
+      .default("oauth2")
+      .notNull(),
+    authentication_methods: d
+      .text("authentication_methods", { mode: "json" })
+      .$type<string[]>()
       .notNull()
-      .$defaultFn(() => false),
+      .$defaultFn(() => ["roblox", "discord"]),
     with_no_staff: d
       .integer("with_no_staff", { mode: "boolean" })
       .notNull()
@@ -181,49 +195,18 @@ export const oauth2Consent = createTable("oauth2_consent", (d) => ({
     .text("id")
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
-  challenge: d.text("challenge").notNull(),
-  login_session_id: d.text("login_session_id").notNull(),
   client_id: d
     .text("client_id")
     .notNull()
     .references(() => oauth2Client.id, { onDelete: "cascade" }),
-  user_id: d.text("user_id").notNull(),
+  user_id: d
+    .text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
   scopes: d.text("scopes").notNull(),
   created_at: d.integer("created_at", { mode: "timestamp" }).notNull(),
   updated_at: d.integer("updated_at", { mode: "timestamp" }).notNull(),
 }));
-
-export const oauth2LoginAttempt = createTable(
-  "oauth2_login_attempt",
-  (d) => ({
-    id: d
-      .text("id")
-      .primaryKey()
-      .$defaultFn(() => crypto.randomUUID())
-      .unique(),
-    client_id: d
-      .text("client_id")
-      .notNull()
-      .references(() => oauth2Client.id, { onDelete: "cascade" }),
-    login_hint: d.text("login_hint"),
-    redirect_uri: d.text("redirect_uri").notNull(),
-    response_type: d.text("response_type").notNull(),
-    scope: d.text("scope").notNull(),
-    state: d.text("state"),
-    nonce: d.text("nonce"),
-    user_id: d
-      .text("user_id")
-      .references(() => user.id, { onDelete: "cascade" }),
-    prompt: d.text("prompt"),
-    promptBypass: d
-      .integer("prompt_bypass", { mode: "boolean" })
-      .notNull()
-      .$defaultFn(() => false),
-    created_at: d.integer("created_at", { mode: "timestamp" }).notNull(),
-    updated_at: d.integer("updated_at", { mode: "timestamp" }).notNull(),
-  }),
-  (t) => [uniqueIndex("id_unique").on(t.id)],
-);
 
 export const oauth2LogoutSession = createTable(
   "oauth2_logout_session",
