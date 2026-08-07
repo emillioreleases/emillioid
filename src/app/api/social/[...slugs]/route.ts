@@ -4,9 +4,10 @@ import { ip } from "elysia-ip";
 import * as client from "openid-client";
 import { env } from "~/env";
 import { db } from "~/server/db";
-import { session, socialUsers, user, verification } from "~/server/db/schema";
+import { flowPopup, session, socialUsers, user, verification } from "~/server/db/schema";
 import { and, eq } from "drizzle-orm";
 import { CompactEncrypt } from "jose";
+import { CalculateNextStage } from "~/utils/calculate-next-stage";
 
 const encryptSecret = new TextEncoder().encode(env.OAUTH2_TOKEN_ENCRYPT_KEY);
 
@@ -32,7 +33,8 @@ const app = new Elysia({ prefix: "/api/social" })
       body,
       params: { idp },
       redirect,
-      cookie: { "emillioid.social-auth": socialAuth },
+      cookie: { "emillioid.social-auth": socialAuth, "emillioid.flow": flowToken },
+      headers,
     }) => {
       const authn = await discover();
       if (!authn[idp])
@@ -44,7 +46,7 @@ const app = new Elysia({ prefix: "/api/social" })
       let nonce: string = client.randomNonce();
 
       let parameters: Record<string, string> = {
-        redirect_uri: `${process.env.NODE_ENV == "production" ? "https" : "http"}://localhost:3000/api/social/${idp}/callback`,
+        redirect_uri: `${env.BETTER_AUTH_URL}/api/social/${idp}/callback`,
         scope: idp !== "discord" ? "openid profile" : "openid identify",
         state,
         nonce,
@@ -78,9 +80,30 @@ const app = new Elysia({ prefix: "/api/social" })
         maxAge: 30 * 60,
       });
 
-      return Response.json({ redirectTo: redirectTo.toString() });
+      if (!headers.referer?.startsWith(env.BETTER_AUTH_URL)) {
+        return new Response("Invalid referer", { status: 400 });
+      }
+
+      const val = new URL(headers.referer);
+      const flow = await db.query.flowPopup.findFirst({
+        columns: {
+          id: true,
+        },
+        where(fields, operators) {
+          return operators.eq(fields.id, val.searchParams.get("flow")!);
+        },
+      });
+
+      if (!flow) {
+        return new Response("Invalid flow", { status: 400 });
+      }
+
+      return redirect(redirectTo.toString());
     },
     {
+      headers: t.Object({
+        "referer": t.String(),
+      }),
       cookie: t.Object({
         "emillioid.social-auth": t.Optional(
           t.Object({
@@ -90,6 +113,7 @@ const app = new Elysia({ prefix: "/api/social" })
             idp: t.String(),
           }),
         ),
+        "emillioid.flow": t.Optional(t.String()),
       }),
     },
   )
@@ -99,6 +123,7 @@ const app = new Elysia({ prefix: "/api/social" })
       params: { idp },
       query,
       request,
+      redirect,
       ip,
       headers,
       cookie: {
@@ -186,7 +211,7 @@ const app = new Elysia({ prefix: "/api/social" })
 
         if (!accountInDb) {
           let userDb: { id: string } | undefined;
-          if (!isLinking) {
+          if (!isLinking.value) {
             userDb = (
               await db.insert(user).values({}).returning({ id: user.id })
             )[0]!;
@@ -242,7 +267,7 @@ const app = new Elysia({ prefix: "/api/social" })
           .setProtectedHeader({ alg: "dir", enc: "A256CBC-HS512" })
           .encrypt(encryptSecret);
 
-        const newSession = await db
+        await db
           .insert(session)
           .values({
             createdAt: new Date(),
@@ -253,10 +278,27 @@ const app = new Elysia({ prefix: "/api/social" })
             expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
             token: encryptedToken,
             id: sid,
-          })
-          .returning();
+          });
 
         sessions.value = encryptedToken;
+
+        const flow = await db.query.flowPopup.findFirst({
+          with: {
+            client: true,
+          },
+          where(fields, operators) {
+            return operators.eq(fields.id, flowToken.value!);
+          },
+        });
+        
+        const modifiedFlowData: typeof flow = {
+          ...flow!,
+          session_id: sid,
+        }
+
+        await db.update(flowPopup).set({ session_id: sid, status: await CalculateNextStage(modifiedFlowData, flow!.client!) }).where(eq(flowPopup.id, flowToken.value!));
+
+        return redirect(`${env.BETTER_AUTH_URL}/signin?flow=${flowToken.value}`);
       } catch (e) {
         console.error(e);
         return new Response("Failed to exchange code for token", {
@@ -270,9 +312,9 @@ const app = new Elysia({ prefix: "/api/social" })
         state: t.String(),
       }),
       cookie: t.Object({
-        "emillioid.is-linking": t.Optional(t.Boolean()),
+        "emillioid.is-linking": t.Optional(t.Boolean({ default: false })),
         "emillioid.social-auth": t.Optional(
-          t.Object({
+          t.Object({  
             code_challenge: t.String(),
             state: t.String(),
             nonce: t.String(),
