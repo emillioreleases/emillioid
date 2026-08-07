@@ -19,7 +19,7 @@
         "clsx": "^2.1.1",
         "drizzle-orm": "^0.45.2",
         "elysia": "^1.4.29",
-        "elysia-ip": "1",
+        "elysia-ip": "2",
         "jose": "^6.2.8",
         "json-diff-ts": "^4.10.4",
         "lucide-react": "^1.30.0",
@@ -704,7 +704,7 @@
 
     "elysia": ["elysia@1.4.29", "", { "dependencies": { "cookie": "^1.1.1", "exact-mirror": "^0.2.7", "fast-decode-uri-component": "^1.0.1", "memoirist": "^0.4.0" }, "peerDependencies": { "@sinclair/typebox": ">= 0.34.0 < 1", "@types/bun": ">= 1.2.0", "file-type": ">= 20.0.0", "openapi-types": ">= 12.0.0", "typescript": ">= 5.0.0" }, "optionalPeers": ["@types/bun", "typescript"] }, "sha512-GwMRGGwSdjfPt+w3LA0fqTuYJtS8uVRJicvoar98/HrO5qdFKDc9CwjIb6Kja+v39lkY+58hr2JvdR9jQzlUuA=="],
 
-    "elysia-ip": ["elysia-ip@1.1.1", "", { "peerDependencies": { "elysia": ">= 1.0.9" } }, "sha512-9mUMRCH58+BOzTeDvaZe729ozfLFTk2oFIrEcmAC+BpRnXUud5FPCBTS/j0GAGmBkuK1JuGsuofS0P7qJT5sDA=="],
+    "elysia-ip": ["elysia-ip@2.0.0", "", { "peerDependencies": { "elysia": ">=2.0.0-0" } }, "sha512-gL+GjqICcB1HVbBmRGm+yCwKyJ8sCgjEDBpYSNXCCEsWFXWycDpget3a5WSf0p7R5V92CbqtZxS471COnM/DVA=="],
 
     "emoji-regex": ["emoji-regex@9.2.2", "", {}, "sha512-L18DaJsXSUk2+42pv8mLs5jJT2hqFkFE4j21wOmgbUqsZ2hL72NsUU785g9RXgo3s0ZNgVl42TiHp3ZtOv/Vyg=="],
 
