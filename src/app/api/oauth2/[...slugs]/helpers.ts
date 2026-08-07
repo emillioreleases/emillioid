@@ -118,7 +118,7 @@ export async function generateIDToken(
     email: `${selected_account.accountId}@${selected_account.accountType}.accounts.emillio.dev`,
     email_verified: true,
   })
-    .setProtectedHeader({ alg: "RS256", typ: "JWT" })
+    .setProtectedHeader({ alg: client.jwtSigningAlgorithm, typ: "JWT" })
     .setIssuedAt()
     .setIssuer("https://accounts.emillio.dev")
     .setAudience(client.id)
