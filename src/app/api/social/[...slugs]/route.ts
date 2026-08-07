@@ -80,6 +80,7 @@ const app = new Elysia({ prefix: "/api/social" })
         },
       };
       const token = await new SignJWT(payload)
+        .setProtectedHeader({ alg: "HS512" })
         .setIssuedAt()
         .setExpirationTime("30m")
         .setIssuer(env.BETTER_AUTH_URL)
@@ -210,11 +211,13 @@ const app = new Elysia({ prefix: "/api/social" })
         ).then((res) =>
           res.json<{
             sub: string;
-            preferred_name: string;
-            name: string;
+            preferred_username: string;
+            nickname: string;
             picture: string;
           }>(),
         );
+
+        console.log(userData);
 
         const accountInDb = await db.query.socialUsers.findFirst({
           columns: {
@@ -265,15 +268,49 @@ const app = new Elysia({ prefix: "/api/social" })
             userId: userDb!.id,
             accountId: userData.sub,
             accountType: idp as "roblox" | "discord",
-            username: userData.preferred_name,
-            display_name: userData.name,
+            username: userData.preferred_username,
+            display_name: userData.nickname || userData.preferred_username,
             image: userData.picture,
           });
 
           uid = userDb!.id;
         } else {
           if (verifyToken.payload.is_linking) {
+            const userDb = await db.query.user.findFirst({
+              columns: {
+                id: true,
+              },
+              where(fields, operators) {
+                return operators.eq(fields.id, uid!);
+              },
+            });
+
+            if (!userDb) {
+              return new Response("No user found", { status: 400 });
+            }
+
+            await db.update(socialUsers).set({
+              username: userData.preferred_username,
+              display_name: userData.nickname || userData.preferred_username,
+              image: userData.picture,
+              userId: userDb!.id,
+            }).where(
+              and(
+                eq(socialUsers.accountId, userData.sub),
+                eq(socialUsers.accountType, idp as "roblox" | "discord"),
+              ),
+            );
           } else {
+            await db.update(socialUsers).set({
+              username: userData.preferred_username,
+              display_name: userData.nickname || userData.preferred_username,
+              image: userData.picture,
+            }).where(
+              and(
+                eq(socialUsers.accountId, userData.sub),
+                eq(socialUsers.accountType, idp as "roblox" | "discord"),
+              ),
+            );
           }
         }
 
