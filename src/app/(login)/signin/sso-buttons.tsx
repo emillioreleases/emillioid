@@ -5,7 +5,7 @@ import { W95Font, W95FontBold } from "~/app/fonts";
 export default function SSOButtons() {
   return (
     <div className="flex w-full flex-col items-center justify-center space-y-2">
-      <Link href="/api/social/discord/login" className="w-full">
+      <Link href="/api/auth/login/discord" className="w-full">
         <button
           className="flex w-full border-t-2 border-r-2 border-b-2 border-l-2 border-t-white border-r-black border-b-black border-l-white bg-[#c3c3c3] active:border-t-4 active:border-t-black active:border-r-white active:border-b-white active:border-l-black"
         >
@@ -27,7 +27,7 @@ export default function SSOButtons() {
           </div>
         </button>
       </Link>
-      <Link href="/api/social/roblox/login" className="w-full">
+      <Link href="/api/auth/login/roblox" className="w-full">
         <button
           className="flex w-full border-t-2 border-r-2 border-b-2 border-l-2 border-t-white border-r-black border-b-black border-l-white bg-[#c3c3c3] active:border-t-4 active:border-t-black active:border-r-white active:border-b-white active:border-l-black"
         >
