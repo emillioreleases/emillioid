@@ -317,7 +317,7 @@ const app = new Elysia({ prefix: "/api/auth" })
         const sid = crypto.randomUUID();
 
         const randomText =
-          ip + "|" + headers["user-agent"] + "|" + uid + "|" + sid;
+          ip + "|" + request.headers.get('user-agent') + "|" + uid + "|" + sid;
         const encryptedToken = await new CompactEncrypt(
           new TextEncoder().encode(randomText),
         )
@@ -329,7 +329,7 @@ const app = new Elysia({ prefix: "/api/auth" })
           .values({
             createdAt: new Date(),
             updatedAt: new Date(),
-            userAgent: headers["user-agent"]!,
+            userAgent: request.headers.get('user-agent')!,
             ipAddress: ip || "unknown",
             userId: uid!,
             expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
