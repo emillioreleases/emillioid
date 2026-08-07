@@ -12,6 +12,9 @@ initOpenNextCloudflareForDev();
 const config = {
   cacheComponents: true,
   serverExternalPackages: ["@libsql/isomorphic-ws"],
+  experimental: {
+    useTypeScriptCli: true,
+  },
 };
 
 export default config;
