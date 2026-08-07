@@ -5,6 +5,7 @@ import { db } from "~/server/db";
 import { approveOAuthRequest, clientValidity, generateToken } from "./helpers";
 import { flowPopup, oauth2LoginSession } from "~/server/db/schema";
 import { env } from "~/env";
+import { SignJWT } from "jose";
 
 const app = new Elysia({ prefix: "/api/oauth2" })
   .error({ OAuthError })
@@ -44,6 +45,7 @@ const app = new Elysia({ prefix: "/api/oauth2" })
       request,
       cookie: {
         "emillioid.flow": flowCookie,
+        "emillioid.flow-attestation": flowAttestationCookie,
         "emillioid.session": sessionCookie,
       },
     }) => {
@@ -85,8 +87,6 @@ const app = new Elysia({ prefix: "/api/oauth2" })
               }
             }
           }
-
-          flowCookie.remove();
         }
       }
       let hasConsent = false;
@@ -138,6 +138,19 @@ const app = new Elysia({ prefix: "/api/oauth2" })
       flowCookie.set({
         secure: process.env.NODE_ENV === "production",
         value: flowSetup.id,
+        httpOnly: true,
+        path: '/',
+        maxAge: 30 * 60,
+      });
+
+      flowAttestationCookie.set({
+        secure: process.env.NODE_ENV === "production",
+        value: await new SignJWT({ flow: flowSetup.id })
+          .setProtectedHeader({ alg: "HS512" })
+          .setIssuer(env.BETTER_AUTH_URL)
+          .setIssuedAt()
+          .setExpirationTime("30m")
+          .sign(new TextEncoder().encode(env.BETTER_AUTH_SECRET)),
         httpOnly: true,
         path: '/',
         maxAge: 30 * 60,
@@ -203,6 +216,7 @@ const app = new Elysia({ prefix: "/api/oauth2" })
       cookie: t.Object({
         "emillioid.session": t.Optional(t.String()),
         "emillioid.flow": t.Optional(t.String()),
+        "emillioid.flow-attestation": t.Optional(t.String()),
       }),
     },
   )

@@ -6,8 +6,9 @@ import { env } from "~/env";
 import { db } from "~/server/db";
 import { flowPopup, session, socialUsers, user, verification } from "~/server/db/schema";
 import { and, eq } from "drizzle-orm";
-import { CompactEncrypt } from "jose";
+import { CompactEncrypt, jwtVerify, SignJWT } from "jose";
 import { CalculateNextStage } from "~/utils/calculate-next-stage";
+import type { FlowAttestationPayload } from "~/utils/types";
 
 const encryptSecret = new TextEncoder().encode(env.OAUTH2_TOKEN_ENCRYPT_KEY);
 
@@ -33,12 +34,15 @@ const app = new Elysia({ prefix: "/api/social" })
       body,
       params: { idp },
       redirect,
-      cookie: { "emillioid.social-auth": socialAuth, "emillioid.flow": flowToken },
+      cookie: { "emillioid.flow-attestation": flowAttestationCookie },
       headers,
     }) => {
       const authn = await discover();
       if (!authn[idp])
         return new Response("Invalid identity provider", { status: 400 });
+      const existingToken = await jwtVerify(flowAttestationCookie?.value || "", new TextEncoder().encode(env.BETTER_AUTH_SECRET), { issuer: env.BETTER_AUTH_URL }).catch(() => null);
+      if (!existingToken || !existingToken.payload)
+        return new Response("Invalid or expired flow attestation", { status: 400 });
       let code_verifier: string = client.randomPKCECodeVerifier();
       let code_challenge: string =
         await client.calculatePKCECodeChallenge(code_verifier);
@@ -66,14 +70,23 @@ const app = new Elysia({ prefix: "/api/social" })
         parameters,
       );
 
-      socialAuth.value = {
-        code_challenge,
-        state,
-        nonce,
-        idp,
+      const payload = {
+        ...(existingToken ? existingToken.payload : {}),
+        social_auth: {
+          code_challenge,
+          state,
+          nonce,
+          idp,
+        },
       };
+      const token = await new SignJWT(payload)
+        .setIssuedAt()
+        .setExpirationTime("30m")
+        .setIssuer(env.BETTER_AUTH_URL)
+        .sign(new TextEncoder().encode(env.BETTER_AUTH_SECRET));
 
-      socialAuth.set({
+      flowAttestationCookie.set({
+        value: token,
         secure: process.env.NODE_ENV === "production",
         httpOnly: true,
         path: "/",
@@ -105,15 +118,7 @@ const app = new Elysia({ prefix: "/api/social" })
         "referer": t.String(),
       }),
       cookie: t.Object({
-        "emillioid.social-auth": t.Optional(
-          t.Object({
-            code_challenge: t.String(),
-            state: t.String(),
-            nonce: t.String(),
-            idp: t.String(),
-          }),
-        ),
-        "emillioid.flow": t.Optional(t.String()),
+        "emillioid.flow-attestation": t.Optional(t.String()),
       }),
     },
   )
@@ -127,17 +132,33 @@ const app = new Elysia({ prefix: "/api/social" })
       ip,
       headers,
       cookie: {
-        "emillioid.is-linking": isLinking,
-        "emillioid.social-auth": socialAuth,
         "emillioid.session": sessions,
-        "emillioid.flow": flowToken,
+        "emillioid.flow-attestation": flowAttestationCookie
       },
     }) => {
       const authn = await discover();
       if (!authn[idp])
         return new Response("Invalid identity provider", { status: 400 });
 
-      if (!socialAuth || !socialAuth?.value || socialAuth.value.idp !== idp) {
+      if (!flowAttestationCookie || !flowAttestationCookie.value) {
+        return new Response("No flow attestation found", { status: 400 });
+      }
+
+      const verifyToken = await jwtVerify<FlowAttestationPayload>(
+        flowAttestationCookie.value,
+        new TextEncoder().encode(env.BETTER_AUTH_SECRET),
+        {
+          issuer: env.BETTER_AUTH_URL,
+        }
+      ).catch(() => null);
+
+      if (!verifyToken || !verifyToken.payload) {
+        return new Response("Invalid or expired flow attestation", {
+          status: 400,
+        });
+      }
+
+      if (!verifyToken.payload.social_auth || verifyToken.payload.social_auth.idp !== idp) {
         return new Response("No social auth in progress", { status: 400 });
       }
 
@@ -147,25 +168,26 @@ const app = new Elysia({ prefix: "/api/social" })
         },
         where(fields, operators) {
           return operators.and(
-            operators.eq(fields.id, socialAuth.value!.state!),
-            operators.eq(fields.identifier, socialAuth.value!.code_challenge),
+            operators.eq(fields.id, verifyToken.payload.social_auth!.state!),
+            operators.eq(fields.identifier, verifyToken.payload.social_auth!.code_challenge),
           );
         },
       });
 
-      if (!codeVerifier) {
+      if (!codeVerifier || !flowAttestationCookie || !flowAttestationCookie.value) {
         return new Response("Invalid or expired social auth session", {
           status: 400,
         });
       }
+
 
       try {
         await db
           .delete(verification)
           .where(
             and(
-              eq(verification.id, socialAuth.value!.state!),
-              eq(verification.identifier, socialAuth.value!.code_challenge),
+              eq(verification.id, verifyToken.payload.social_auth!.state!),
+              eq(verification.identifier, verifyToken.payload.social_auth!.code_challenge),
             ),
           );
         const tokenRespond = await client.authorizationCodeGrant(
@@ -173,9 +195,9 @@ const app = new Elysia({ prefix: "/api/social" })
           new URL(request.url),
           {
             pkceCodeVerifier: codeVerifier.value,
-            expectedState: socialAuth.value.state!,
+            expectedState: verifyToken.payload.social_auth!.state!,
             expectedNonce:
-              idp !== "discord" ? socialAuth.value.nonce! : undefined,
+              idp !== "discord" ? verifyToken.payload.social_auth!.nonce! : undefined,
           },
         );
         const userData = await fetch(
@@ -211,7 +233,7 @@ const app = new Elysia({ prefix: "/api/social" })
 
         if (!accountInDb) {
           let userDb: { id: string } | undefined;
-          if (!isLinking.value) {
+          if (!verifyToken.payload.is_linking) {
             userDb = (
               await db.insert(user).values({}).returning({ id: user.id })
             )[0]!;
@@ -250,12 +272,10 @@ const app = new Elysia({ prefix: "/api/social" })
 
           uid = userDb!.id;
         } else {
-          if (isLinking) {
+          if (verifyToken.payload.is_linking) {
           } else {
           }
         }
-
-        socialAuth.remove();
 
         const sid = crypto.randomUUID();
 
@@ -287,7 +307,7 @@ const app = new Elysia({ prefix: "/api/social" })
             client: true,
           },
           where(fields, operators) {
-            return operators.eq(fields.id, flowToken.value!);
+            return operators.eq(fields.id, verifyToken.payload.flow);
           },
         });
         
@@ -296,9 +316,9 @@ const app = new Elysia({ prefix: "/api/social" })
           session_id: sid,
         }
 
-        await db.update(flowPopup).set({ session_id: sid, status: await CalculateNextStage(modifiedFlowData, flow!.client!) }).where(eq(flowPopup.id, flowToken.value!));
+        await db.update(flowPopup).set({ session_id: sid, status: await CalculateNextStage(modifiedFlowData, flow!.client!) }).where(eq(flowPopup.id, verifyToken.payload.flow));
 
-        return redirect(`${env.BETTER_AUTH_URL}/signin?flow=${flowToken.value}`);
+        return redirect(`${env.BETTER_AUTH_URL}/signin?flow=${verifyToken.payload.flow}`);
       } catch (e) {
         console.error(e);
         return new Response("Failed to exchange code for token", {
@@ -312,17 +332,8 @@ const app = new Elysia({ prefix: "/api/social" })
         state: t.String(),
       }),
       cookie: t.Object({
-        "emillioid.is-linking": t.Optional(t.Boolean({ default: false })),
-        "emillioid.social-auth": t.Optional(
-          t.Object({  
-            code_challenge: t.String(),
-            state: t.String(),
-            nonce: t.String(),
-            idp: t.String(),
-          }),
-        ),
         "emillioid.session": t.Optional(t.String()),
-        "emillioid.flow": t.Optional(t.String()),
+        "emillioid.flow-attestation": t.Optional(t.String()),
       }),
     },
   );

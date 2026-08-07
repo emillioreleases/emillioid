@@ -4,6 +4,8 @@ import LoginTemplate from "./login-template";
 import { db } from "~/server/db";
 import { InvalidFlow } from "~/app/_components/invalid-flow";
 import RobloxLink from "./prompts/roblox-link";
+import { jwtVerify } from "jose";
+import { env } from "~/env";
 
 export default async function SignIn({
   searchParams,
@@ -13,6 +15,22 @@ export default async function SignIn({
   const [cookieStore, { flow }] = await Promise.all([cookies(), searchParams]);
 
   if (!flow || !cookieStore.has("emillioid.flow") || cookieStore.get("emillioid.flow")?.value !== flow) {
+    return <InvalidFlow />;
+  }
+
+  if (!cookieStore.has("emillioid.flow-attestation")) {
+    return <InvalidFlow />;
+  }
+
+  const verifyToken = await jwtVerify(
+    cookieStore.get("emillioid.flow-attestation")!.value,
+    new TextEncoder().encode(env.BETTER_AUTH_SECRET),
+    {
+      issuer: env.BETTER_AUTH_URL,
+    }
+  ).catch(() => null);
+
+  if (!verifyToken || !verifyToken.payload || verifyToken.payload.flow !== flow) {
     return <InvalidFlow />;
   }
 
