@@ -18,6 +18,7 @@ export const env = createEnv({
     AF_SECRET: z.string(),
     BETTER_AUTH_SECRET: z.string(),
     BETTER_AUTH_URL: z.string().url(),
+    BLOXLINK_API_KEY: z.string(),
     DATABASE_URL: z.string().url(),
     DATABASE_TOKEN: z.string(),
     NODE_ENV: z
@@ -52,6 +53,7 @@ export const env = createEnv({
     AF_SECRET: process.env.AF_SECRET,
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
     BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
+    BLOXLINK_API_KEY: process.env.BLOXLINK_API_KEY,
     DATABASE_URL: process.env.DATABASE_URL,
     DATABASE_TOKEN: process.env.DATABASE_TOKEN,
     NODE_ENV: process.env.NODE_ENV,
