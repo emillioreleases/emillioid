@@ -188,15 +188,15 @@ export async function linkViaTPBloxlink() {
     }
 
     try {
-        const bloxlinkFetch = await fetch(
+        const bloxlinkFetch: {
+            robloxID: string;
+        } = await fetch(
             `https://api.blox.link/v4/public/guilds/1396311258315231292/discord-to-roblox/${flowData.session?.user.socialUsers.find((account) => account.accountType === "discord")?.accountId}`,
             {
                 headers: { Authorization: env.BLOXLINK_API_KEY },
             },
         ).then((response) =>
-            response.json<{
-                robloxID: string;
-            }>(),
+            response.json(),
         );
 
         if (!bloxlinkFetch.robloxID) {
@@ -212,9 +212,9 @@ export async function linkViaTPBloxlink() {
             },
         });
 
-        const [rbxUserData, thumbnailData] = await Promise.all([
-            fetch(`https://users.roblox.com/v1/users/${bloxlinkFetch.robloxID}`).then((res) => res.json<{ id: number; name: string; displayName: string; }>()),
-            fetch(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${bloxlinkFetch.robloxID}&size=150x150&format=Png&isCircular=false`).then((res) => res.json<{ data: { imageUrl: string; }[]; }>()),
+        const [rbxUserData, thumbnailData]: [{ id: number; name: string; displayName: string; }, { data: { imageUrl: string; }[] }] = await Promise.all([
+            fetch(`https://users.roblox.com/v1/users/${bloxlinkFetch.robloxID}`).then((res) => res.json()),
+            fetch(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${bloxlinkFetch.robloxID}&size=150x150&format=Png&isCircular=false`).then((res) => res.json()),
         ]);
 
         const payload: typeof socialUsers.$inferInsert = {

@@ -201,7 +201,12 @@ const app = new Elysia({ prefix: "/api/auth" })
               idp !== "discord" ? verifyToken.payload.social_auth!.nonce! : undefined,
           },
         );
-        const userData = await fetch(
+        const userData: {
+          sub: string;
+          preferred_username: string;
+          nickname: string;
+          picture: string;
+        } = await fetch(
           authn[idp].serverMetadata().userinfo_endpoint!,
           {
             headers: {
@@ -209,12 +214,7 @@ const app = new Elysia({ prefix: "/api/auth" })
             },
           },
         ).then((res) =>
-          res.json<{
-            sub: string;
-            preferred_username: string;
-            nickname: string;
-            picture: string;
-          }>(),
+          res.json(),
         );
 
         console.log(userData);
@@ -347,7 +347,7 @@ const app = new Elysia({ prefix: "/api/auth" })
             return operators.eq(fields.id, verifyToken.payload.flow);
           },
         });
-        
+
         const modifiedFlowData: typeof flow = {
           ...flow!,
           session_id: sid,
