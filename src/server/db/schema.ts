@@ -36,6 +36,11 @@ export const user = createTable(
   (t) => [index("user_id_idx").on(t.id)],
 );
 
+export const userRelations = relations(user, ({ many }) => ({
+  socialUsers: many(socialUsers),
+}))
+
+
 export const socialUsers = createTable("social_users", (d) => ({
   id: d
     .text("id")
@@ -52,6 +57,13 @@ export const socialUsers = createTable("social_users", (d) => ({
   display_name: d.text("display_name"),
   username: d.text("username"),
   image: d.text("image"),
+}));
+
+export const socialUsersRelations = relations(socialUsers, ({ one }) => ({
+  user: one(user, {
+    fields: [socialUsers.userId],
+    references: [user.id],
+  }),
 }));
 
 export const session = createTable(
@@ -75,6 +87,13 @@ export const session = createTable(
   ],
 );
 
+export const sessionRelations = relations(session, ({ one }) => ({
+  user: one(user, {
+    fields: [session.userId],
+    references: [user.id],
+  }),
+}));
+
 export const flowPopup = createTable("flow_popup", (d) => ({
   id: d
     .text("id")
@@ -82,15 +101,15 @@ export const flowPopup = createTable("flow_popup", (d) => ({
     .$defaultFn(() => crypto.randomUUID()),
   returnUrl: d.text("return_url").notNull(),
   saml_request: d.text("saml_request"),
-  selected_account: d.text("selected_account").references(() => socialUsers.id),
+  selected_account: d.text("selected_account").references(() => socialUsers.id, { onDelete: "set null" }),
   status: d.text("status", {
-    enum: ["forced_login", "select_account", "consent_needed", "complete"],
+    enum: ["forced_login", "select_account", "link_account", "consent_needed", "complete"],
   }),
   client_id: d.text("client_id").references(() => oauth2Client.id),
   provided_consent: d
     .integer("provided_consent", { mode: "boolean" })
     .notNull(),
-  session_id: d.text("session_id").references(() => session.id),
+  session_id: d.text("session_id").references(() => session.id, { onDelete: "cascade" }),
 }));
 
 export const flowPopupRelations = relations(flowPopup, ({ one }) => ({
