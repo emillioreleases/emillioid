@@ -1,6 +1,6 @@
 "use server";
 import { cookies } from "next/headers";
-import { jwtVerify } from "jose";
+import { jwtVerify, SignJWT } from "jose";
 import { env } from "~/env";
 import { db } from "~/server/db";
 import type { FlowAttestationPayload } from "./types";
@@ -80,17 +80,52 @@ export async function selectAccount(accountType: "discord" | "roblox", accountId
         };
     }
 
-    const newFlowData = {...flowData, selected_account: socialUser.id};
+    const newFlowData = { ...flowData, selected_account: socialUser.id };
 
     await db
         .update(flowPopup)
         .set({ ...newFlowData, status: await CalculateNextStage(newFlowData, flowData!.client!, flowData!.session!) })
         .where(eq(flowPopup.id, flow));
-    
+
     return {
         status: "success",
         message: "Account selected successfully.",
     };
+}
+
+export async function startLinkingProcess() {
+    const cookieStore = await cookies();
+    if (!cookieStore.has("emillioid.flow-attestation")) {
+        return {
+            status: "error",
+            message: "No flow attestation cookie found.",
+        };
+    }
+
+    const flowAttestation = cookieStore.get("emillioid.flow-attestation")!.value;
+    const flowAttestationPayload = await jwtVerify<FlowAttestationPayload>(flowAttestation, new TextEncoder().encode(env.BETTER_AUTH_SECRET), {
+        issuer: env.BETTER_AUTH_URL,
+    }).catch(() => null);
+
+    if (!flowAttestationPayload) {
+        return {
+            status: "error",
+            message: "Invalid flow attestation.",
+        };
+    }
+
+    cookieStore.set(
+        "emillioid.flow-attestation",
+        await new SignJWT({ flow: flowAttestationPayload.payload.flow })
+            .setProtectedHeader({ alg: "HS512" })
+            .sign(new TextEncoder().encode(env.BETTER_AUTH_SECRET)),
+        {
+            secure: process.env.NODE_ENV === "production",
+            httpOnly: true,
+            path: "/",
+            maxAge: 30 * 60,
+        }
+    );
 }
 
 export async function linkViaTPBloxlink() {
@@ -154,14 +189,14 @@ export async function linkViaTPBloxlink() {
 
     try {
         const bloxlinkFetch = await fetch(
-          `https://api.blox.link/v4/public/guilds/1396311258315231292/discord-to-roblox/${flowData.session?.user.socialUsers.find((account) => account.accountType === "discord")?.accountId}`,
-          {
-            headers: { Authorization: env.BLOXLINK_API_KEY },
-          },
+            `https://api.blox.link/v4/public/guilds/1396311258315231292/discord-to-roblox/${flowData.session?.user.socialUsers.find((account) => account.accountType === "discord")?.accountId}`,
+            {
+                headers: { Authorization: env.BLOXLINK_API_KEY },
+            },
         ).then((response) =>
-          response.json<{
-            robloxID: string;
-          }>(),
+            response.json<{
+                robloxID: string;
+            }>(),
         );
 
         if (!bloxlinkFetch.robloxID) {

@@ -3,7 +3,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { W95Font, W95FontBold } from "~/app/fonts";
 import { cn } from "~/lib/utils";
-import { linkViaTPBloxlink } from "~/utils/server-actions";
+import { linkViaTPBloxlink, startLinkingProcess } from "~/utils/server-actions";
 
 export default function RobloxLink() {
   const router = useRouter();
@@ -28,7 +28,14 @@ export default function RobloxLink() {
               <div className="flex w-full flex-col space-y-2 text-left">
                                 <button
                   className="flex w-full border-t-2 border-r-2 border-b-2 border-l-2 border-t-white border-r-black border-b-black border-l-white bg-[#c3c3c3] active:border-t-4 active:border-t-black active:border-r-white active:border-b-white active:border-l-black"
-                  onClick={() => setArea("selectThirdParty")}
+                  onClick={() => {
+                    setButtonsEnabled(false);
+                    startLinkingProcess().then(() => {
+                      if (typeof window !== "undefined") {
+                        window.location.href = "/api/auth/roblox/login/";
+                      }
+                    });
+                  }}
                   disabled={!buttonsEnabled}
                 >
                   <div
