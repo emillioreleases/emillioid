@@ -10,6 +10,8 @@ import type { FlowAttestationPayload } from "~/utils/types";
 import { AccountSelectPrompt } from "./prompts/account-select";
 import { RedirectUser } from "./prompts/redirect-user";
 
+export const instant = false;
+
 export default async function SignIn({
   searchParams,
 }: {
