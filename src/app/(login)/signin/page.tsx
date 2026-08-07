@@ -8,7 +8,6 @@ import { jwtVerify } from "jose";
 import { env } from "~/env";
 import type { FlowAttestationPayload } from "~/utils/types";
 import { AccountSelectPrompt } from "./prompts/account-select";
-import { redirect, RedirectType } from "next/navigation";
 import { RedirectUser } from "./prompts/redirect-user";
 
 export default async function SignIn({
@@ -90,7 +89,7 @@ export default async function SignIn({
       );
     case "link_account":
       return <LoginTemplate title="Link an account" description={`Please link an account to continue to ${flowData?.client?.name || "your applications."}.`}>
-        <RobloxLink clientName={flowData?.client?.name!} challenge={flow} />
+        <RobloxLink />
       </LoginTemplate>
       ;
     case "consent_needed":

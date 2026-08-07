@@ -5,13 +5,7 @@ import { W95Font, W95FontBold } from "~/app/fonts";
 import { cn } from "~/lib/utils";
 import { linkViaTPBloxlink } from "~/utils/server-actions";
 
-export default function RobloxLink({
-  clientName,
-  challenge,
-}: {
-  clientName: string;
-  challenge: string;
-}) {
+export default function RobloxLink() {
   const router = useRouter();
   const [area, setArea] = useState<"select" | "selectThirdParty">("select");
   const [buttonsEnabled, setButtonsEnabled] = useState(true);

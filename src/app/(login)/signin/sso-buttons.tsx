@@ -2,11 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { W95Font, W95FontBold } from "~/app/fonts";
 
-export default function SSOButtons({
-  withBypassRedirect,
-}: {
-  withBypassRedirect?: boolean;
-}) {
+export default function SSOButtons() {
   return (
     <div className="flex w-full flex-col items-center justify-center space-y-2">
       <Link href="/api/social/discord/login" className="w-full">

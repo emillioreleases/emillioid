@@ -24,8 +24,10 @@ export function AccountSelectPrompt({ accounts }: { accounts: { accountType: "di
                     className="flex w-full border-t-2 border-r-2 border-b-2 border-l-2 border-t-white border-r-black border-b-black border-l-white bg-[#c3c3c3] active:border-t-4 active:border-t-black active:border-r-white active:border-b-white active:border-l-black"
                     onClick={async () => {
                         const result = await selectAccount(account.accountType, account.accountId);
+                        setButtonsEnabled(false);
                         if (result.status === "error") {
                             setError(result.message);
+                            setButtonsEnabled(true);
                         } else {
                             router.refresh();
                         }
