@@ -1,15 +1,9 @@
-import Image from "next/image";
-import { auth } from "~/server/auth";
 import { cookies } from "next/headers";
 import SSOButtons from "./sso-buttons";
-import RobloxLink from "./prompts/roblox-link";
-import { redirect } from "next/navigation";
-import SigningIn from "./signing-in";
 import LoginTemplate from "./login-template";
 import { db } from "~/server/db";
 import { InvalidFlow } from "~/app/_components/invalid-flow";
-import { OAuthPromptTypes } from "~/app/api/oauth2/[...slugs]/Enums";
-import { CalculateNextStage } from "~/utils/calculate-next-stage";
+import RobloxLink from "./prompts/roblox-link";
 
 export default async function SignIn({
   searchParams,
@@ -17,40 +11,56 @@ export default async function SignIn({
   searchParams: Promise<{ flow: string | undefined }>;
 }) {
   const [cookieStore, { flow }] = await Promise.all([cookies(), searchParams]);
-  const session = cookieStore.get("emillioid.session")?.value || null;
-  const flowToken = cookieStore.get("emillioid.flow")?.value;
 
-  if (flow) {
-    cookieStore.set("emillioid.flow", flow, {
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 30,
-      path: "/",
-      sameSite: "strict",
-    });
-  }
-
-  if (!flow && !flowToken) {
+  if (!flow || !cookieStore.has("emillioid.flow") || cookieStore.get("emillioid.flow")?.value !== flow) {
     return <InvalidFlow />;
   }
 
   const flowData = await db.query.flowPopup.findFirst({
+    columns: {
+      status: true,
+    },
     where(fields, operators) {
-      return operators.eq(fields.id, flow || flowToken!);
+      return operators.eq(fields.id, flow);
     },
     with: {
       client: true,
+      session: {
+        columns: {
+          token: true,
+        },
+      }
     },
   });
 
-  const prompt = CalculateNextStage(flowData!, flowData!.client!);
+  if (!flowData) {
+    return <InvalidFlow />;
+  }
 
-  cookieStore.set("emillioid.return-url", "/signin?flow=" + flowData!.id, {
-    secure: process.env.NODE_ENV === "production",
-    maxAge: 60 * 5,
-  });
+  if (cookieStore.get("emillioid.session")?.value !== flowData.session?.token) {
+    return <InvalidFlow />;
+  }
 
-  switch (prompt) {
+  switch (flowData.status) {
     case "forced_login":
+      return (
+        <LoginTemplate title="Sign in" description={`Please sign in to continue to ${flowData?.client?.name || "your applications."}.`}>
+          <SSOButtons />
+        </LoginTemplate>
+      );
     case "select_account":
+      return <LoginTemplate title="Select an account" description={`Please select an account to continue to ${flowData?.client?.name || "your applications."}.`} />
+      ;
+    case "link_account":
+      return <LoginTemplate title="Link an account" description={`Please link an account to continue to ${flowData?.client?.name || "your applications."}.`}>
+        <RobloxLink clientName={flowData?.client?.name!} challenge={flow} />
+      </LoginTemplate>
+      ;
+    case "consent_needed":
+      return <LoginTemplate title="Consent needed" description={`Please provide consent to continue to ${flowData?.client?.name || "your applications."}.`} />
+      ;
+    case "complete":
+      return <LoginTemplate title="Complete" description={`You have completed the flow for ${flowData?.client?.name || "your applications."}.`} />
+      ;
   }
 }
