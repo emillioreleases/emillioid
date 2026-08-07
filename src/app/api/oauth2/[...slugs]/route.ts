@@ -92,7 +92,9 @@ const app = new Elysia({ prefix: "/api/oauth2" })
       let hasConsent = false;
       if (authSession) {
         const consent = await db.query.oauth2Consent.findFirst({
-          columns: {},
+          columns: {
+            id: true
+          },
           where(fields, operators) {
             return operators.and(
               operators.eq(fields.client_id, query.client_id),
@@ -107,10 +109,12 @@ const app = new Elysia({ prefix: "/api/oauth2" })
 
       const flowSetup: typeof flowPopup.$inferInsert = {
         id: crypto.randomUUID(),
+        client_id: query.client_id,
         returnUrl: new URL(request.url).pathname + new URL(request.url).search,
         provided_consent: hasConsent
           ? hasConsent
           : !additionalClientInfo.consentNeeded,
+        status: "forced_login"
       };
 
       switch (query.prompt) {
@@ -122,11 +126,22 @@ const app = new Elysia({ prefix: "/api/oauth2" })
           );
         case OAuthPromptTypes.Consent:
           flowSetup.provided_consent = false;
-        case OAuthPromptTypes.Login:
+          flowSetup.status = "consent_needed";
+        case OAuthPromptTypes.SelectAccount:
+          flowSetup.status = "select_account";
+        case OAuthPromptTypes.Login || !authSession:
           flowSetup.status = "forced_login";
       }
 
-      await db.insert(flowPopup).values(flowSetup);
+      await db.insert(flowPopup).values(flowSetup).returning();
+
+      flowCookie.set({
+        secure: process.env.NODE_ENV === "production",
+        value: flowSetup.id,
+        httpOnly: true,
+        path: '/',
+        maxAge: 30 * 60,
+      });
       return redirect(`${env.BETTER_AUTH_URL}/signin?flow=${flowSetup.id}`);
     },
     {
