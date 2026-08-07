@@ -26,6 +26,7 @@ export const env = createEnv({
       .default("development"),
     OAUTH2_TOKEN_SIGN_KEY: z.string(),
     OAUTH2_TOKEN_ENCRYPT_KEY: z.string(),
+    SOCIAL_AUTH_REDIRECT_BASE_URL: z.string().url(),
   },
 
   /**
@@ -59,6 +60,7 @@ export const env = createEnv({
     NODE_ENV: process.env.NODE_ENV,
     OAUTH2_TOKEN_SIGN_KEY: process.env.OAUTH2_TOKEN_SIGN_KEY,
     OAUTH2_TOKEN_ENCRYPT_KEY: process.env.OAUTH2_TOKEN_ENCRYPT_KEY,
+    SOCIAL_AUTH_REDIRECT_BASE_URL: process.env.SOCIAL_AUTH_REDIRECT_BASE_URL,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

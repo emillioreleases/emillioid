@@ -26,10 +26,10 @@ async function discover(): Promise<Record<string, client.Configuration>> {
   return { roblox, discord };
 }
 
-const app = new Elysia({ prefix: "/api/social" })
+const app = new Elysia({ prefix: "/api/auth" })
   .use(ip())
   .get(
-    "/:idp/login",
+    "/login/:idp",
     async ({
       body,
       params: { idp },
@@ -50,7 +50,7 @@ const app = new Elysia({ prefix: "/api/social" })
       let nonce: string = client.randomNonce();
 
       let parameters: Record<string, string> = {
-        redirect_uri: `${env.BETTER_AUTH_URL}/api/social/${idp}/callback`,
+        redirect_uri: `${env.SOCIAL_AUTH_REDIRECT_BASE_URL || env.BETTER_AUTH_URL}/api/auth/callback/${idp}`,
         scope: idp !== "discord" ? "openid profile" : "openid identify",
         state,
         nonce,
@@ -124,7 +124,7 @@ const app = new Elysia({ prefix: "/api/social" })
     },
   )
   .get(
-    "/:idp/callback",
+    "/callback/:idp",
     async ({
       params: { idp },
       query,
