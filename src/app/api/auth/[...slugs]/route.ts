@@ -193,7 +193,7 @@ const app = new Elysia({ prefix: "/api/auth" })
           );
         const tokenRespond = await client.authorizationCodeGrant(
           authn[idp],
-          new URL(request.url),
+          new URL(`${env.SOCIAL_AUTH_REDIRECT_BASE_URL || env.BETTER_AUTH_URL}/api/auth/callback/${idp}`),
           {
             pkceCodeVerifier: codeVerifier.value,
             expectedState: verifyToken.payload.social_auth!.state!,
