@@ -311,11 +311,7 @@ const app = new Elysia({ prefix: "/api/oauth2" })
                 return operators.and(
                   operators.eq(fields.has_authorization_code_been_used, false),
                   operators.eq(fields.id, tokenData.session_id),
-                  operators.eq(fields.client_id, client.id),
-                  operators.gt(
-                    fields.created_at,
-                    new Date(Date.now() - 300 * 1000),
-                  ),
+                  operators.eq(fields.client_id, client.id)
                 );
               },
               with: {
