@@ -76,17 +76,16 @@ export async function approveOAuthRequest(
   };
 
   const uriEncodedStrings = new URLSearchParams();
-  let followupData: typeof oauth2LoginSession.$inferSelect | undefined;
 
   for (const responseType of query.response_type) {
     console.log("responseType", responseType);
     switch (responseType) {
       case OAuthResponseTypes.Code:
-        data.authorization_code = await generateToken(query, session, "ac");
+        data.authorization_code = await generateToken(query, session, "ac", flow.selected_account!);
         uriEncodedStrings.set("code", data.authorization_code);
         break;
       case OAuthResponseTypes.Token:
-        data.access_token = await generateToken(query, session, "at");
+        data.access_token = await generateToken(query, session, "at", flow.selected_account!);
         uriEncodedStrings.set("access_token", data.access_token);
         uriEncodedStrings.set("token_type", "Bearer");
         break;
@@ -152,6 +151,7 @@ export async function generateToken(
   query: { client_id: string },
   session: typeof sessionDb.$inferSelect,
   type: string,
+  socialUserId: string,
 ) {
   return await new CompactEncrypt(
     new TextEncoder().encode(
@@ -161,6 +161,8 @@ export async function generateToken(
           query.client_id +
           "|" +
           session.userId +
+          "|" +
+          socialUserId +
           "|" +
           session.id +
           "|" +

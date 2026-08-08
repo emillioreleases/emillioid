@@ -346,11 +346,13 @@ const app = new Elysia({ prefix: "/api/oauth2" })
               { client_id: oauth2SessionData.client_id },
               sessionData,
               "at",
+              oauth2SessionData.social_user_id!
             ),
             generateToken(
               { client_id: oauth2SessionData.client_id },
               sessionData,
               "rt",
+              oauth2SessionData.social_user_id!
             ),
             generateIDToken(
               { id: oauth2SessionData.client_id, jwtSigningAlgorithm: oauth2SessionData.client.jwtSigningAlgorithm },
@@ -423,11 +425,13 @@ const app = new Elysia({ prefix: "/api/oauth2" })
               { client_id: oauth2Session.client_id },
               session,
               "at",
+              oauth2Session.socialUser.id!
             ),
             generateToken(
               { client_id: oauth2Session.client_id },
               session,
               "rt",
+              oauth2Session.socialUser.id!
             ),
             generateIDToken(
               { id: oauth2Session.client_id, jwtSigningAlgorithm: oauth2Session.client.jwtSigningAlgorithm },
