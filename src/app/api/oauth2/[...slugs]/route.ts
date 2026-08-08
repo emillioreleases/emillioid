@@ -2,7 +2,7 @@ import { Elysia, t } from "elysia";
 import { OAuthError } from "./errors/OAuthError";
 import { OAuthPromptTypes, OAuthResponseTypes, OAuthScopes } from "./Enums";
 import { db } from "~/server/db";
-import { approveOAuthRequest, clientValidity, generateToken } from "./helpers";
+import { approveOAuthRequest, clientValidity, generateIDToken, generateToken } from "./helpers";
 import { flowPopup, oauth2LoginSession } from "~/server/db/schema";
 import { env } from "~/env";
 import { jwtVerify, SignJWT } from "jose";
@@ -304,7 +304,16 @@ const app = new Elysia({ prefix: "/api/oauth2" })
                   ),
                 );
               },
-            })
+              with: {
+                socialUser: true,
+                client: {
+                  columns: {
+                    id: true,
+                    jwtSigningAlgorithm: true,
+                  },
+                },
+              },
+            }),
           ]);
 
           if (!client) {
@@ -332,19 +341,30 @@ const app = new Elysia({ prefix: "/api/oauth2" })
             throw new Error("Something went wrong fetching parent session.");
           }
 
-          const responseFinal = {
-            access_token: await generateToken(
+          const [at, rt, idt] = await Promise.all([
+            generateToken(
               { client_id: oauth2SessionData.client_id },
               sessionData,
               "at",
             ),
-            token_type: "Bearer",
-            expires_in: 3600,
-            refresh_token: await generateToken(
+            generateToken(
               { client_id: oauth2SessionData.client_id },
               sessionData,
               "rt",
             ),
+            generateIDToken(
+              { id: oauth2SessionData.client_id, jwtSigningAlgorithm: oauth2SessionData.client.jwtSigningAlgorithm },
+              oauth2SessionData.socialUser,
+              sessionData,
+            ),
+          ]);
+
+          const responseFinal = {
+            access_token: at,
+            token_type: "Bearer",
+            expires_in: 3600,
+            refresh_token: rt,
+            id_token: idt,
           };
 
           await db.update(oauth2LoginSession).set({

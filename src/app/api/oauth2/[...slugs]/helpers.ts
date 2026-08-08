@@ -114,7 +114,7 @@ export async function approveOAuthRequest(
 }
 
 export async function generateIDToken(
-  client: typeof oauth2Client.$inferSelect,
+  client: { id: string; jwtSigningAlgorithm: string },
   selected_account: typeof socialUsers.$inferSelect,
   session: typeof sessionDb.$inferSelect,
 ) {
