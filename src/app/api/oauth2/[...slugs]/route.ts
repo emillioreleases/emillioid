@@ -2,13 +2,15 @@ import { Elysia, t } from "elysia";
 import { OAuthError } from "./errors/OAuthError";
 import { OAuthPromptTypes, OAuthResponseTypes, OAuthScopes } from "./Enums";
 import { db } from "~/server/db";
-import { approveOAuthRequest, clientValidity, generateIDToken, generateToken } from "./helpers";
+import { approveOAuthRequest, clientValidity, generateIDToken, generateToken, getTokenData } from "./helpers";
 import { flowPopup, oauth2LoginSession } from "~/server/db/schema";
 import { env } from "~/env";
-import { jwtVerify, SignJWT } from "jose";
+import { compactDecrypt, jwtVerify, SignJWT } from "jose";
 import type { FlowAttestationPayload } from "~/utils/types";
 import { CalculateNextStage } from "~/utils/calculate-next-stage";
 import { eq } from "drizzle-orm";
+
+const encryptSecret = new TextEncoder().encode(env.OAUTH2_TOKEN_ENCRYPT_KEY);
 
 const app = new Elysia({ prefix: "/api/oauth2" })
   .error({ OAuthError })
@@ -30,12 +32,18 @@ const app = new Elysia({ prefix: "/api/oauth2" })
     }
 
     const accessToken = authHeader.substring(7);
+    const tokenData = await getTokenData(accessToken);
+
+    if (!tokenData || tokenData.type !== "at" || Date.now() > parseInt(tokenData.exp) || Date.now() < parseInt(tokenData.iat)) {
+      throw new OAuthError("invalid_token", "Invalid access token");
+    }
+
     const session = await db.query.oauth2LoginSession.findFirst({
       columns: {
         id: true
       },
       where(fields, operators) {
-        return operators.eq(fields.access_token, accessToken);
+        return operators.eq(fields.id, tokenData.session_id);
       },
       with: {
         socialUser: true,
@@ -274,6 +282,7 @@ const app = new Elysia({ prefix: "/api/oauth2" })
         columns: {
           id: true,
           clientSecret: true,
+          jwtSigningAlgorithm: true,
         },
         where(fields, operators) {
           return operators.and(
@@ -292,11 +301,16 @@ const app = new Elysia({ prefix: "/api/oauth2" })
 
       switch (body.grant_type) {
         case "authorization_code":
+          const tokenData = await getTokenData(body.code?.toString()!);
+          if (!tokenData || tokenData.type !== "ac" || Date.now() > parseInt(tokenData.exp) || Date.now() < parseInt(tokenData.iat)) {
+            throw new OAuthError("invalid_grant", "Invalid authorization code.");
+          }
           const [oauth2SessionData] = await db.batch([
             db.query.oauth2LoginSession.findFirst({
               where(fields, operators) {
                 return operators.and(
-                  operators.eq(fields.authorization_code, body.code?.toString()!),
+                  operators.eq(fields.has_authorization_code_been_used, false),
+                  operators.eq(fields.id, tokenData.session_id),
                   operators.eq(fields.client_id, client.id),
                   operators.gt(
                     fields.created_at,
@@ -306,12 +320,6 @@ const app = new Elysia({ prefix: "/api/oauth2" })
               },
               with: {
                 socialUser: true,
-                client: {
-                  columns: {
-                    id: true,
-                    jwtSigningAlgorithm: true,
-                  },
-                },
               },
             }),
           ]);
@@ -341,21 +349,20 @@ const app = new Elysia({ prefix: "/api/oauth2" })
             throw new Error("Something went wrong fetching parent session.");
           }
 
+          const rtid = crypto.randomUUID();
           const [at, rt, idt] = await Promise.all([
             generateToken(
-              { client_id: oauth2SessionData.client_id },
-              sessionData,
-              "at",
-              oauth2SessionData.social_user_id!
+              crypto.randomUUID(),
+              tokenData.session_id,
+              "at"
             ),
             generateToken(
-              { client_id: oauth2SessionData.client_id },
-              sessionData,
-              "rt",
-              oauth2SessionData.social_user_id!
+              rtid,
+              tokenData.session_id,
+              "rt"
             ),
             generateIDToken(
-              { id: oauth2SessionData.client_id, jwtSigningAlgorithm: oauth2SessionData.client.jwtSigningAlgorithm },
+              { id: oauth2SessionData.client_id, jwtSigningAlgorithm: client.jwtSigningAlgorithm },
               oauth2SessionData.socialUser,
               sessionData,
             ),
@@ -364,26 +371,29 @@ const app = new Elysia({ prefix: "/api/oauth2" })
           const responseFinal = {
             access_token: at,
             token_type: "Bearer",
-            expires_in: 3600,
+            expires_in: 300,
             refresh_token: rt,
             id_token: idt,
           };
 
           await db.update(oauth2LoginSession).set({
-            access_token: responseFinal.access_token,
-            refresh_token: responseFinal.refresh_token,
-            authorization_code: null,
-          });
+            has_authorization_code_been_used: true,
+            active_rtoken: rtid
+          }).where(eq(oauth2LoginSession.id, oauth2SessionData.id));
 
           return Response.json(responseFinal);
         case "refresh_token":
+          const tokenData2 = await getTokenData(body.refresh_token?.toString()!);
+          if (!tokenData2 || tokenData2.type !== "rt" || Date.now() > parseInt(tokenData2.exp) || Date.now() < parseInt(tokenData2.iat)) {
+            throw new OAuthError("invalid_grant", "Invalid refresh token.");
+          }
           const oauth2Session = await db.query.oauth2LoginSession.findFirst({
             where(fields, operators) {
               return operators.and(
                 operators.eq(fields.client_id, client.id),
                 operators.eq(
-                  fields.refresh_token,
-                  body.refresh_token?.toString()!,
+                  fields.active_rtoken,
+                  tokenData2.token_id,
                 ),
                 operators.gt(
                   fields.updated_at,
@@ -398,11 +408,7 @@ const app = new Elysia({ prefix: "/api/oauth2" })
             },
             with: {
               socialUser: true,
-              client: {
-                columns: {
-                  jwtSigningAlgorithm: true,
-                },
-              },
+              session: true,
             }
           });
 
@@ -410,48 +416,39 @@ const app = new Elysia({ prefix: "/api/oauth2" })
             throw new OAuthError("invalid_grant", "Refresh token is expired.");
           }
 
-          const session = await db.query.session.findFirst({
-            where(fields, operators) {
-              return operators.eq(fields.id, oauth2Session?.session_id!);
-            },
-          });
-
-          if (!session) {
-            throw new Error("Something went wrong fetching parent session.");
-          }
+          const rtid2 = crypto.randomUUID();
 
           const [at2, rt2, idt2] = await Promise.all([
             generateToken(
-              { client_id: oauth2Session.client_id },
-              session,
-              "at",
-              oauth2Session.socialUser.id!
+              crypto.randomUUID(),
+              oauth2Session.session_id,
+              "at"
             ),
             generateToken(
-              { client_id: oauth2Session.client_id },
-              session,
+              rtid2,
+              oauth2Session.session_id,
               "rt",
-              oauth2Session.socialUser.id!
+              parseInt(tokenData2.exp)
             ),
             generateIDToken(
-              { id: oauth2Session.client_id, jwtSigningAlgorithm: oauth2Session.client.jwtSigningAlgorithm },
+              { id: oauth2Session.client_id, jwtSigningAlgorithm: client.jwtSigningAlgorithm },
               oauth2Session.socialUser,
-              session,
+              oauth2Session.session,
             ),
           ]);
 
           const response = {
             access_token: at2,
             token_type: "Bearer",
-            expires_in: 3600,
+            expires_in: 300,
             refresh_token: rt2,
             id_token: idt2,
           };
 
           await db.update(oauth2LoginSession).set({
-            access_token: response.access_token,
-            refresh_token: response.refresh_token,
-          });
+            active_rtoken: rt2
+          }).where(eq(oauth2LoginSession.id, oauth2Session.id));
+
           return Response.json(response);
         default:
           throw new OAuthError(

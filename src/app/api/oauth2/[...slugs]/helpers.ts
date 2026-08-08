@@ -1,7 +1,7 @@
 import "server-only";
 import { db } from "~/server/db";
 import { OAuthError } from "./errors/OAuthError";
-import { base64url, CompactEncrypt, importJWK, SignJWT } from "jose";
+import { base64url, compactDecrypt, CompactEncrypt, importJWK, SignJWT } from "jose";
 import { env } from "~/env";
 import { OAuthResponseTypes, type OAuthScopes } from "./Enums";
 import {
@@ -59,10 +59,8 @@ export async function approveOAuthRequest(
     throw new Error("Found no user data");
   }
   const data: typeof oauth2LoginSession.$inferInsert = {
-    id_token: null,
-    access_token: null,
-    refresh_token: null,
-    authorization_code: null,
+    id: crypto.randomUUID(),
+    has_authorization_code_been_used: query.response_type.includes(OAuthResponseTypes.Code) ? false : true,
     code_verifier: null,
     session_id: session.id,
     user_id: session.userId,
@@ -81,17 +79,17 @@ export async function approveOAuthRequest(
     console.log("responseType", responseType);
     switch (responseType) {
       case OAuthResponseTypes.Code:
-        data.authorization_code = await generateToken(query, session, "ac", flow.selected_account!);
-        uriEncodedStrings.set("code", data.authorization_code);
+        const ac = await generateToken(crypto.randomUUID(), data.id!, "ac");
+        uriEncodedStrings.set("code", ac);
         break;
       case OAuthResponseTypes.Token:
-        data.access_token = await generateToken(query, session, "at", flow.selected_account!);
-        uriEncodedStrings.set("access_token", data.access_token);
+        const at = await generateToken(crypto.randomUUID(), data.id!, "at");
+        uriEncodedStrings.set("access_token", at);
         uriEncodedStrings.set("token_type", "Bearer");
         break;
       case OAuthResponseTypes.IDToken:
-        data.id_token = await generateIDToken(client, userData, session);
-        uriEncodedStrings.set("id_token", data.id_token);
+        const idt = await generateIDToken(client, userData, session);
+        uriEncodedStrings.set("id_token", idt);
         break;
       default:
         throw new OAuthError(
@@ -102,7 +100,7 @@ export async function approveOAuthRequest(
     }
   }
 
-  await db.batch([db.insert(oauth2LoginSession).values(data).returning()]);
+  await db.insert(oauth2LoginSession).values(data);
   return (
     query.redirect_uri +
     "?" +
@@ -147,27 +145,44 @@ export async function generateIDToken(
   return idToken;
 }
 
+export async function getTokenData(token: string) {
+  try {
+    const decryptedToken = await compactDecrypt(token, encryptSecret);
+    const [token_id, type, session_id, iat, exp] = decryptedToken.plaintext.toLocaleString("utf-8").split("|") as [string, string, string, string, string];
+    return { token_id, type, session_id, iat, exp };
+  } catch {
+    return null;
+  }
+}
+
 export async function generateToken(
-  query: { client_id: string },
-  session: typeof sessionDb.$inferSelect,
+  token_id: string,
+  oauth2SessionID: string,
   type: string,
-  socialUserId: string,
+  expirationOverride?: number,
 ) {
+  let exp: number;
+  switch (type) {
+    case "ac":
+      exp = Date.now() + 1000 * 60 * 1;
+      break;
+    case "at":
+      exp = Date.now() + 1000 * 60 * 5;
+      break;
+    case "rt":
+      exp = Date.now() + 1000 * 60 * 60 * 24 * 7; // 7 days
+      break;
+    default:
+      throw new Error("Invalid token type");
+  }
+
+  if (expirationOverride) {
+    exp = expirationOverride;
+  }
+
   return await new CompactEncrypt(
     new TextEncoder().encode(
-      base64url.encode(
-        crypto.randomUUID() +
-          "|" +
-          query.client_id +
-          "|" +
-          session.userId +
-          "|" +
-          socialUserId +
-          "|" +
-          session.id +
-          "|" +
-          type,
-      ),
+      token_id + "|" + type + "|" + oauth2SessionID + "|" + Date.now() + "|" + exp,
     ),
   )
     .setProtectedHeader({ alg: "dir", enc: "A256CBC-HS512" })

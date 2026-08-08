@@ -15,6 +15,13 @@
       "when": 1786154043631,
       "tag": "0001_watery_redwing",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1786167855279,
+      "tag": "0002_unknown_dazzler",
+      "breakpoints": true
     }
   ]
 }

@@ -234,12 +234,13 @@ export const oauth2LoginSession = createTable(
       .text("id")
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
-    id_token: d.text("id_token"),
-    access_token: d.text("access_token"),
-    refresh_token: d.text("refresh_token"),
-    authorization_code: d.text("authorization_code"),
     code_verifier: d.text("code_verifier"),
     redirect_uri: d.text("redirect_uri"),
+    active_rtoken: d.text("active_rtoken"),
+    has_authorization_code_been_used: d
+      .integer("has_authorization_code_been_used", { mode: "boolean" })
+      .notNull()
+      .default(false),
     session_id: d
       .text("session_id")
       .notNull()
@@ -266,9 +267,8 @@ export const oauth2LoginSession = createTable(
     updated_at: d.integer("updated_at", { mode: "timestamp" }).notNull(),
   }),
   (t) => [
-    index("access_token_idx").on(t.access_token),
-    index("refresh_token_idx").on(t.refresh_token),
-    index("client_id_idx").on(t.client_id),
+    index("login_session_id_idx").on(t.id),
+    index("login_session_client_id_idx").on(t.client_id),
   ],
 );
 
