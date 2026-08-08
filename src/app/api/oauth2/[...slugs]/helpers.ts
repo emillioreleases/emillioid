@@ -148,6 +148,8 @@ export async function generateIDToken(
 export async function getTokenData(token: string) {
   try {
     const decryptedToken = await compactDecrypt(token, encryptSecret);
+    console.log("decryptedToken", decryptedToken.plaintext.toLocaleString("utf-8"));
+    console.log("decryptedToken", decryptedToken.plaintext.toString());
     const [token_id, type, session_id, iat, exp] = decryptedToken.plaintext.toLocaleString("utf-8").split("|") as [string, string, string, string, string];
     return { token_id, type, session_id, iat, exp };
   } catch {
