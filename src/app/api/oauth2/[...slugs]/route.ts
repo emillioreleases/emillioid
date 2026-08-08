@@ -389,6 +389,19 @@ const app = new Elysia({ prefix: "/api/oauth2" })
                 ),
               );
             },
+            columns: {
+              id: true,
+              client_id: true,
+              session_id: true,
+            },
+            with: {
+              socialUser: true,
+              client: {
+                columns: {
+                  jwtSigningAlgorithm: true,
+                },
+              },
+            }
           });
 
           if (!oauth2Session) {
@@ -405,19 +418,30 @@ const app = new Elysia({ prefix: "/api/oauth2" })
             throw new Error("Something went wrong fetching parent session.");
           }
 
-          const response = {
-            access_token: await generateToken(
+          const [at2, rt2, idt2] = await Promise.all([
+            generateToken(
               { client_id: oauth2Session.client_id },
               session,
               "at",
             ),
-            token_type: "Bearer",
-            expires_in: 3600,
-            refresh_token: await generateToken(
+            generateToken(
               { client_id: oauth2Session.client_id },
               session,
               "rt",
             ),
+            generateIDToken(
+              { id: oauth2Session.client_id, jwtSigningAlgorithm: oauth2Session.client.jwtSigningAlgorithm },
+              oauth2Session.socialUser,
+              session,
+            ),
+          ]);
+
+          const response = {
+            access_token: at2,
+            token_type: "Bearer",
+            expires_in: 3600,
+            refresh_token: rt2,
+            id_token: idt2,
           };
 
           await db.update(oauth2LoginSession).set({
