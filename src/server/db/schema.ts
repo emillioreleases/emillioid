@@ -248,6 +248,10 @@ export const oauth2LoginSession = createTable(
       .text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    social_user_id: d
+      .text("social_user_id")
+      .notNull()
+      .references(() => socialUsers.id, { onDelete: "cascade" }),
     client_id: d
       .text("client_id")
       .notNull()
@@ -267,6 +271,25 @@ export const oauth2LoginSession = createTable(
     index("client_id_idx").on(t.client_id),
   ],
 );
+
+export const oauth2LoginSessionRelations = relations(oauth2LoginSession, ({ one }) => ({
+  session: one(session, {
+    fields: [oauth2LoginSession.session_id],
+    references: [session.id],
+  }),
+  user: one(user, {
+    fields: [oauth2LoginSession.user_id],
+    references: [user.id],
+  }),
+  socialUser: one(socialUsers, {
+    fields: [oauth2LoginSession.social_user_id],
+    references: [socialUsers.id],
+  }),
+  client: one(oauth2Client, {
+    fields: [oauth2LoginSession.client_id],
+    references: [oauth2Client.id],
+  }),
+}));
 
 export const oauth2Keys = createTable(
   "oauth2_keys",

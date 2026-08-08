@@ -72,7 +72,7 @@ export async function approveOAuthRequest(
     token_type: "Bearer",
     created_at: new Date(),
     updated_at: new Date(),
-    force_roblox_account: userData.accountType === "roblox",
+    social_user_id: flow.selected_account!
   };
 
   const uriEncodedStrings = new URLSearchParams();

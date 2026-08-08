@@ -23,6 +23,40 @@ const app = new Elysia({ prefix: "/api/oauth2" })
       return new OAuthError("server_error", "", query.state!);
     }
   })
+  .get("/userinfo", async ({ headers }) => {
+    const authHeader = headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      throw new OAuthError("invalid_request", "Missing or invalid token");
+    }
+
+    const accessToken = authHeader.substring(7);
+    const session = await db.query.oauth2LoginSession.findFirst({
+      columns: {
+        id: true
+      },
+      where(fields, operators) {
+        return operators.eq(fields.access_token, accessToken);
+      },
+      with: {
+        socialUser: true,
+      },
+    });
+
+    if (!session) {
+      throw new OAuthError("invalid_token", "Invalid access token");
+    }
+
+    return Response.json({
+      sub: session.socialUser.id,
+      name: session.socialUser.display_name,
+      email: session.socialUser.accountId + `@${session.socialUser.accountType}.accounts.emillio.dev`,
+      picture: session.socialUser.image,
+    });
+  }, {
+    headers: t.Object({
+      authorization: t.String(),
+    }),
+  })
   .get("/jwks", async () => {
     const keys = await db.query.oauth2Keys.findMany({
       columns: {
