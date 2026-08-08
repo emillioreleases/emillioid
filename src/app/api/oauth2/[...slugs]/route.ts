@@ -47,7 +47,7 @@ const app = new Elysia({ prefix: "/api/oauth2" })
     }
 
     return Response.json({
-      sub: session.socialUser.id,
+      sub: session.socialUser.accountType + "|" + session.socialUser.accountId,
       name: session.socialUser.display_name,
       email: session.socialUser.accountId + `@${session.socialUser.accountType}.accounts.emillio.dev`,
       picture: session.socialUser.image,
