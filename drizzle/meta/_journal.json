@@ -8,6 +8,13 @@
       "when": 1781845886045,
       "tag": "0000_flashy_mikhail_rasputin",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1786154043631,
+      "tag": "0001_watery_redwing",
+      "breakpoints": true
     }
   ]
 }
