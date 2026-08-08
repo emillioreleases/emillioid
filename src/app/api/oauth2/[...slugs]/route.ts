@@ -56,9 +56,12 @@ const app = new Elysia({ prefix: "/api/oauth2" })
 
     return Response.json({
       sub: session.socialUser.accountType + "|" + session.socialUser.accountId,
-      name: session.socialUser.display_name,
-      email: session.socialUser.accountId + `@${session.socialUser.accountType}.accounts.emillio.dev`,
+      name: `${session.socialUser.display_name} (@${session.socialUser.username})`,
+      nickname: session.socialUser.display_name,
+      preferred_username: session.socialUser.username,
       picture: session.socialUser.image,
+      email: `${session.socialUser.accountId}@${session.socialUser.accountType}.accounts.emillio.dev`,
+      email_verified: true,
     });
   }, {
     headers: t.Object({
@@ -302,6 +305,7 @@ const app = new Elysia({ prefix: "/api/oauth2" })
       switch (body.grant_type) {
         case "authorization_code":
           const tokenData = await getTokenData(body.code?.toString()!);
+          console.log(tokenData)
           if (!tokenData || tokenData.type !== "ac" || Date.now() > parseInt(tokenData.exp) || Date.now() < parseInt(tokenData.iat)) {
             throw new OAuthError("invalid_grant", "Invalid authorization code.");
           }
@@ -381,7 +385,7 @@ const app = new Elysia({ prefix: "/api/oauth2" })
         case "refresh_token":
           const tokenData2 = await getTokenData(body.refresh_token?.toString()!);
           if (!tokenData2 || tokenData2.type !== "rt" || Date.now() > parseInt(tokenData2.exp) || Date.now() < parseInt(tokenData2.iat)) {
-            throw new OAuthError("invalid_grant", "Invalid refresh token.");
+            throw new OAuthError("invalid_grant", "Invalid/expired refresh token.");
           }
           const oauth2Session = await db.query.oauth2LoginSession.findFirst({
             where(fields, operators) {
@@ -390,10 +394,6 @@ const app = new Elysia({ prefix: "/api/oauth2" })
                 operators.eq(
                   fields.active_rtoken,
                   tokenData2.token_id,
-                ),
-                operators.gt(
-                  fields.updated_at,
-                  new Date(Date.now() - 5400 * 1000),
                 ),
               );
             },
