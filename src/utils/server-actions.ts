@@ -42,8 +42,9 @@ export async function selectAccount(accountType: "discord" | "roblox", accountId
                         with: {
                             socialUsers: {
                                 columns: {
-                                    accountType: true,
+                                    id: true,
                                     accountId: true,
+                                    accountType: true,
                                 },
                             },
                         }
@@ -67,11 +68,7 @@ export async function selectAccount(accountType: "discord" | "roblox", accountId
         };
     }
 
-    const socialUser = await db.query.socialUsers.findFirst({
-        where(fields, operators) {
-            return operators.and(operators.eq(fields.accountType, accountType), operators.eq(fields.accountId, accountId), operators.eq(fields.userId, flowData.session!.userId));
-        }
-    })
+    const socialUser = await flowData.session?.user.socialUsers.find((account) => account.accountType === accountType && account.accountId === accountId);
 
     if (!socialUser) {
         return {
