@@ -49,7 +49,7 @@
     "server-only": "^0.0.1",
     "superjson": "^2.2.6",
     "tailwind-merge": "^3.6.0",
-    "video.js": "^8.24.0",
+    "video.js": "^10.0.0",
     "videojs-youtube": "^3.0.1",
     "zod": "^4.5.1"
   },
