@@ -1,5 +1,5 @@
 import "server-only";
-import Elysia, { t } from "elysia";
+import { Elysia, t } from "elysia";
 import { ip } from "elysia-ip";
 import * as client from "openid-client";
 import { env } from "~/env";
@@ -31,7 +31,6 @@ const app = new Elysia({ prefix: "/api/auth" })
   .get(
     "/login/:idp",
     async ({
-      body,
       params: { idp },
       redirect,
       cookie: { "emillioid.flow-attestation": flowAttestationCookie },
